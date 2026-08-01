@@ -2,86 +2,89 @@
 
 Amazon 2.0 is an independent, playful book-library demo for the Speedlane take-home challenge. It is not affiliated with Amazon and does not use Amazon branding or trade dress.
 
-This commit establishes the Docker-first TypeScript platform: a React client, Express 5 API, PostgreSQL, Prisma, and shared Zod contracts. Product routes, data models, authentication, and book-library UI are deliberately not implemented yet.
+The repository currently includes the PostgreSQL/Prisma data foundation, deterministic demo seeds, cookie-based authentication, shared Zod contracts, database-backed health checking, and the public discovery API. The React app remains a health-status scaffold; authenticated catalogue and library workflows are not implemented yet.
 
 ## Quick start
 
 Prerequisites: Docker Desktop with Docker Compose v2. For local (non-Docker) development, use Node.js 22+ and pnpm 10+.
 
-```sh
-docker compose up --build
-```
-
-Then verify the API from another terminal:
-
-```sh
-curl --fail http://localhost:3000/api/health
-```
-
-The React scaffold is available at <http://localhost:5173>. Stop the stack with:
-
-```sh
-docker compose down
-```
-
-To remove the local database volume as well, run `docker compose down --volumes`.
-
-## Environment
-
-Docker Compose has safe local defaults. To change ports or database credentials, copy the template and edit the copy:
+Copy the environment template and replace `JWT_SECRET` with at least 32 random characters:
 
 ```sh
 cp .env.example .env
+docker compose up --build --detach
+docker compose exec api pnpm --filter @amazon-2/api prisma:seed
 ```
 
-The API template is at `apps/api/.env.example`; it includes placeholders for the future JWT and CORS configuration. Never commit real credentials or a production JWT secret.
+Compose applies Prisma migrations automatically when the API starts. Seeding is an explicit, idempotent step so it can safely be repeated.
+
+Verify the public API:
+
+```sh
+curl --fail http://localhost:3000/api/health
+curl --fail http://localhost:3000/api/discover
+```
+
+The React scaffold is available at <http://localhost:5173>. Stop the stack with `docker compose down`. To remove the local database volume as well, run `docker compose down --volumes`.
+
+## Environment
+
+Docker Compose provides local database and port defaults. `JWT_SECRET` has no usable default and must be replaced before starting the stack. To change ports, database credentials, cookie security, or token lifetime, edit the copied `.env` file. Never commit real credentials or a production JWT secret.
+
+For local API commands, copy `apps/api/.env.example` to `apps/api/.env`, replace `JWT_SECRET`, and point `DATABASE_URL` at a running PostgreSQL instance.
 
 ## Local commands
 
 ```sh
 pnpm install
 pnpm dev          # starts the API on :3000 and Vite on :5173
-pnpm build        # builds contracts, API, and web
+pnpm build        # production-builds contracts, API, and web
 pnpm typecheck
-pnpm test
+pnpm test         # runs the API test suite
 pnpm db:generate
 pnpm db:migrate
 pnpm db:seed
 ```
 
-For local API commands, create `apps/api/.env` from `apps/api/.env.example` and point `DATABASE_URL` at a running PostgreSQL instance. The Compose stack runs Prisma migrations automatically before starting the API.
+## API status
 
-## Health check
+Implemented routes:
 
-`GET /api/health` is the only application route in this scaffold. It checks PostgreSQL with Prisma and returns a shared, Zod-validated response:
+- `GET /api/health` checks PostgreSQL and returns the shared health contract.
+- `GET /api/discover` is public and returns at most six newest active books. It orders equal creation timestamps by book ID ascending and exposes only `coverSeed`, `title`, `author`, and active genre names.
+- `POST /api/auth/login` validates seeded credentials and sets a short-lived JWT in an HTTP-only cookie.
+- `POST /api/auth/logout` expires the session cookie.
+- `GET /api/auth/me` returns the authenticated user and requires a valid session cookie.
+
+Example discovery response:
 
 ```json
 {
-  "status": "ok",
-  "service": "api",
-  "database": "connected",
-  "timestamp": "2026-08-01T00:00:00.000Z"
+  "books": [
+    {
+      "coverSeed": "amazon-2-cover-240",
+      "title": "The Unwritten Voyage",
+      "author": "Theo Laurent",
+      "genres": ["Graphic Novels", "Poetry"]
+    }
+  ]
 }
 ```
 
-Docker Compose also waits for PostgreSQL, migrations, and this API health check before it starts the web service.
-
-## Layout
-
-```text
-apps/api          Express 5 API, Prisma, migration, no-op idempotent seed, API health test
-apps/web          React + Vite scaffold and proxied health status view
-packages/contracts Shared Zod schemas and inferred TypeScript types
-compose.yaml      Docker Compose services for web, API, and PostgreSQL
-```
+The authenticated catalogue, filters, pagination, book details, preferences, reading lists, librarian management, Swagger/OpenAPI documentation, and product frontend are not implemented in this slice. `/api/docs` therefore does not exist yet.
 
 ## Database and seeds
 
-The initial Prisma migration establishes the migration workflow but intentionally contains no domain tables. `pnpm db:seed` is an idempotent connectivity check and creates no product data. Future product implementation will add users, books, genres, preferences, and reading-list data along with the requested demo accounts.
+Prisma models users, books, genres, book/genre associations, ordered favourite genres, and reading-list entries, including the specified soft-archive/removal timestamps. The idempotent seed creates 240 deterministic active books, 12 active genres, and the two demo accounts below without using external services.
 
 ## Roles and demo accounts
 
-The product specification defines visitor, reader, and librarian roles. Authentication and authorization are intentionally not scaffolded beyond the reserved `JWT_SECRET` environment placeholder, so no demo accounts exist yet and no role-specific workflow can be exercised. They will be introduced only alongside the corresponding data model and API contracts.
+| Role | Email | Password |
+| --- | --- | --- |
+| Reader | `reader@amazon2.local` | `ReaderDemo123!` |
+| Librarian | `librarian@amazon2.local` | `LibrarianDemo123!` |
+
+There is no public registration flow. Authentication derives the role from the server-side user record and never accepts a client-selected role.
 
 ## Ports
 
@@ -91,12 +94,21 @@ The product specification defines visitor, reader, and librarian roles. Authenti
 
 Override them in `.env` using `WEB_PORT`, `API_PORT`, and `POSTGRES_PORT`.
 
-## API documentation and future scope
+## Layout
 
-Swagger/OpenAPI documentation will be published at `/api/docs` when product endpoints are added. Authentication, demo accounts, book discovery, library management, product tests, and accessibility flows are intentionally outside this scaffold and are not claimed as implemented.
-
-The current web page is semantic and keyboard-accessible, and it respects reduced motion by not using animation. The finished product will add the responsive, accessible interaction flows defined in `docs/product-spec.md`.
+```text
+apps/api           Express 5 API with app.ts composition, feature-oriented routers, Prisma, seeds, and API tests
+apps/web           React + Vite health-status scaffold with an API proxy
+packages/contracts Shared Zod schemas and inferred TypeScript types
+compose.yaml       Docker Compose services for web, API, and PostgreSQL
+```
 
 ## Tests
 
-`pnpm test` runs focused API tests for successful and unavailable-database health responses. Product authorization, discovery, and UI-flow tests belong to the feature implementation phase and are not claimed as present in this scaffold.
+`pnpm test` currently runs 20 API tests across four files. They cover health success/failure, token and role middleware, login/session/logout behavior, CORS rejection, unauthenticated discovery access, the six-record cap, newest-first stable ordering, archived-book exclusion, the minimal database projection, and validation against the shared discovery response contract.
+
+There are no product UI tests or database-backed integration tests yet. The live Compose smoke check covers the migrated, seeded PostgreSQL path for `GET /api/health` and `GET /api/discover`.
+
+## Accessibility
+
+The current web scaffold uses semantic status output and does not introduce animation. Responsive catalogue, forms, management screens, and their accessibility acceptance paths remain future work with the unimplemented frontend features.

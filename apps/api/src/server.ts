@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 import { createApp, type AppDatabase } from "./app.js";
 import { readEnvironment } from "./config/env.js";
+import { findPublicBookPreviews } from "./discovery/database.js";
 
 const environment = readEnvironment();
 const prisma = new PrismaClient();
@@ -32,6 +33,9 @@ const database: AppDatabase = {
         role: true,
       },
     });
+  },
+  async findPublicBookPreviews() {
+    return findPublicBookPreviews(prisma);
   },
 };
 

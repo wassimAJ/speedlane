@@ -52,6 +52,29 @@ The repository root must contain a clear `README.md` and `DECISIONS.md`.
   behaviour. Follow a newer explicit parent instruction when it changes a
   project decision.
 
+## Delegation protocol
+
+- Only the main task delegates work, owns shared files and API contracts,
+  makes final decisions, integrates changes, and delivers the submission.
+- For non-trivial API, database, authentication, seed, or API-test work,
+  delegate to `backend_builder`. Integrate its result before relying on its API
+  contract in the frontend.
+- For visual-system or interaction decisions, delegate to `design_director`
+  before substantial frontend implementation.
+- For non-trivial React, responsive UI, or frontend-test work, delegate to
+  `frontend_builder` after the relevant API contract is agreed.
+- The main task defines or changes shared schema/API contracts; affected
+  builders must review implementation impact before work proceeds.
+- Delegate README.md and DECISIONS.md completion to `docs_release` only after
+  the application is runnable and its behaviour is verified.
+- After an integrated milestone, use `integration_qa` and
+  `security_reviewer` for independent read-only checks. Route confirmed issues
+  to the responsible builder.
+- Run `reviewer` after high-priority QA and security findings are resolved for
+  the final requirement, quality, accessibility, and documentation review.
+- Do not delegate tiny edits, duplicate work across agents, or overlapping
+  workspace-write tasks.
+
 ## Shared contract
 
 The API is versionless under `/api`, the frontend treats server authorization

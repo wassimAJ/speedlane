@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm build && pnpm --filter @amazon-2/api prisma:generate
+RUN pnpm --filter @amazon-2/api prisma:generate && pnpm build
 
 EXPOSE 3000
 

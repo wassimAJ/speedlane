@@ -69,6 +69,7 @@ function testDatabase(overrides: Partial<AppDatabase> = {}): AppDatabase {
         role: user.role,
       };
     }),
+    findPublicBookPreviews: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -140,6 +141,7 @@ describe("authentication", () => {
     expect(response.body).not.toHaveProperty("token");
     expect(response.headers["access-control-allow-origin"]).toBe(config.corsOrigin);
     expect(response.headers["access-control-allow-credentials"]).toBe("true");
+    expect(response.headers["cache-control"]).toBe("no-store");
 
     const cookies = response.headers["set-cookie"];
 
@@ -241,6 +243,7 @@ describe("authentication", () => {
         message: "Authentication is required.",
       },
     });
+    expect(response.headers["cache-control"]).toBe("no-store");
   });
 
   it("logs out by expiring the cookie and invalidating the agent session", async () => {
@@ -271,5 +274,20 @@ describe("authentication", () => {
       .expect(403);
 
     expect(apiErrorResponseSchema.parse(response.body).error.code).toBe("FORBIDDEN");
+  });
+});
+
+describe("central route handling", () => {
+  it("returns the shared not-found response for an unknown route", async () => {
+    const response = await request(createApp(testDatabase(), config))
+      .get("/api/unknown")
+      .expect(404);
+
+    expect(apiErrorResponseSchema.parse(response.body)).toEqual({
+      error: {
+        code: "NOT_FOUND",
+        message: "Route not found.",
+      },
+    });
   });
 });
