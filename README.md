@@ -1,179 +1,202 @@
 # Amazon 2.0
 
-Amazon 2.0 is an independent, playful book-library application built for the Speedlane take-home challenge. It is not affiliated with Amazon and does not use Amazon branding or trade dress.
+## Setup and run
 
-The application includes public discovery and Reader registration/email verification, authenticated reader catalogue, profile and engagement flows, a librarian Back Room, and public Swagger/OpenAPI documentation. PostgreSQL/Prisma persistence, deterministic seed fixtures, cookie authentication, shared Zod contracts, and the responsive React application run together through Docker Compose.
+These instructions start from a fresh clone and bring up PostgreSQL, the API, and the web application with Docker Compose.
 
-## Product status
+### Prerequisites
 
-- Visitors can open the public landing page, see exactly six newest active book previews from `GET /api/discover`, register a Reader account, verify or resend verification email, read the independence statement, and continue to sign in.
-- Readers can sign in and out, view account details, change their display name, browse/search/filter/sort/paginate the active catalogue, open book details, save zero to five ordered favourite genres, receive at most six personalised **For your shelves** results, and manage **Want to read**, **Reading**, and **Finished** reading-list states. Soft-removed entries can be restored with their previous state; archived books remain as unavailable shelf history and can still be removed.
-- Librarians have all reader capabilities plus the **Back Room**, with active and archived views for books and genres and create, edit, archive, and restore workflows. A genre cannot be archived while it is the sole active genre of an active book.
+- Git with access to the repository's configured GitHub remote.
+- Node.js 22 or newer.
+- Corepack and pnpm 10; the repository pins pnpm `10.13.1`.
+- Docker Engine or Docker Desktop with Docker Compose v2.
+- Free local ports `5432`, `3000`, and `5173`, or replacement ports configured in `.env`.
 
-Public registration can stage a new `READER` account; role and other privileged input are rejected and roles remain server-owned. No staged display name or password becomes an account credential until the matching browser-bound challenge is verified. Password reset, email change, and librarian self-registration/onboarding are not implemented.
+### 1. Clone and install dependencies
 
-## Quick start
+```sh
+git clone git@github.com:wassimAJ/speedlane.git amazon-2
+cd amazon-2
+corepack enable
+corepack prepare pnpm@10.13.1 --activate
+pnpm install --frozen-lockfile
+```
 
-Prerequisites: Docker Desktop with Docker Compose v2. For local (non-Docker) development, use Node.js 22+ and pnpm 10+.
+If the repository was supplied by another transport, enter its root directory and begin with `corepack enable`.
 
-Copy the environment template, then replace `JWT_SECRET` with at least 32 random characters:
+### 2. Create a safe local environment
+
+Copy the committed template, then replace its deliberately invalid JWT placeholder with a generated 64-character hexadecimal secret:
 
 ```sh
 cp .env.example .env
-# Edit .env: the supplied JWT_SECRET value is intentionally invalid.
+node -e 'const fs=require("node:fs"),crypto=require("node:crypto"),p=".env";fs.writeFileSync(p,fs.readFileSync(p,"utf8").replace(/^JWT_SECRET=.*$/m,`JWT_SECRET=${crypto.randomBytes(32).toString("hex")}`));'
+```
+
+Review `.env` before first startup:
+
+| Variable | Local behavior |
+| --- | --- |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Compose database credentials. The template values are trusted-local defaults; replace them before using the stack on a shared or exposed machine. |
+| `POSTGRES_PORT`, `API_PORT`, `WEB_PORT` | Host ports; defaults are `5432`, `3000`, and `5173`. |
+| `JWT_SECRET` | Required, at least 32 characters, and rejected if left as the template placeholder. Never commit it. |
+| `JWT_TTL_SECONDS` | Authenticated session lifetime, from 60 to 3,600 seconds; the default is 900. |
+| `COOKIE_SECURE` | Keep `false` for local HTTP. Use `true` only when the application is served over HTTPS. |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Optional as a pair. Both must be set to deliver registration codes; setting only one is invalid. |
+
+To enable public Reader signup, verify a sending domain or sender in Resend, then set both Resend variables. `RESEND_FROM_EMAIL` accepts either a verified address or `Display Name <verified-address@example.com>`. Do not commit the API key or put it in documentation.
+
+When both Resend variables are empty, the rest of the application and seeded-account login continue to work, but otherwise-valid registration and resend requests return a controlled `503` without creating pending account state. Live Resend delivery was not part of release verification; automated coverage uses injected mail clients.
+
+### 3. Start, migrate, and seed
+
+```sh
+docker compose config --quiet
 docker compose up --build --detach
+docker compose ps
+docker compose exec api pnpm --filter @amazon-2/api prisma:migrate:deploy
 docker compose exec api pnpm --filter @amazon-2/api prisma:seed
+curl --fail --silent --show-error http://localhost:3000/api/health
 ```
 
-Compose refuses to start with the placeholder secret. The API applies Prisma migrations automatically at startup; the explicit seed is idempotent and safe to repeat.
+The API image automatically runs `prisma migrate deploy` before starting. The explicit migration command above is safe to repeat and confirms that all four committed migrations are applied. The deterministic seed is also idempotent; its successful summary is:
 
-Verify the public API:
-
-```sh
-curl --fail http://localhost:3000/api/health
-curl --fail http://localhost:3000/api/discover
+```text
+Prisma seed completed: 240 active books, 12 active genres, 2 users.
 ```
 
-Open the application at <http://localhost:5173>, Swagger UI at <http://localhost:3000/api/docs> or through the web proxy at <http://localhost:5173/api/docs>, and the OpenAPI JSON at <http://localhost:3000/api/openapi.json>. Stop the stack with `docker compose down`; add `--volumes` to remove the local database.
+Open the running services:
 
-## Environment and local development
+| Surface | URL |
+| --- | --- |
+| Web application | <http://localhost:5173> |
+| API health | <http://localhost:3000/api/health> |
+| Public discovery | <http://localhost:3000/api/discover> |
+| Swagger UI | <http://localhost:3000/api/docs> |
+| OpenAPI 3.0.3 JSON | <http://localhost:3000/api/openapi.json> |
 
-Docker Compose defaults to web `5173`, API `3000`, and PostgreSQL `5432`. The copied `.env` can override those ports, the trusted-local database credentials, cookie security, and the 900-second token lifetime. Never commit a real JWT secret or reuse the default local database credentials outside this environment.
+Swagger is also available through the web proxy at <http://localhost:5173/api/docs>.
 
-For non-Docker API or Prisma commands, copy `apps/api/.env.example` to `apps/api/.env`, replace `JWT_SECRET`, and provide a reachable `DATABASE_URL`. A running PostgreSQL instance is required for development API startup, migrations, and seeding; Prisma client generation does not require a database connection.
-
-The browser calls relative `/api` URLs with credentials included, and Vite proxies those requests to the API in local and Compose environments. The JWT remains in the server-set HTTP-only cookie and is never stored in React state, local storage, or session storage.
-
-### Verification email delivery
-
-Verification email uses the official Resend SDK. To enable delivery, verify a sending domain/sender in Resend, then set both `RESEND_API_KEY` and `RESEND_FROM_EMAIL`; the sender may be a verified address or a `Display Name <verified@example.com>` value. Never commit either a real API key or other production secrets. Supplying only one variable is rejected during environment validation.
-
-With delivery configured, accepted registration and resend outcomes return the same generic `202` and set an HTTP-only pending-verification cookie. Delivery is then scheduled as an in-process best-effort task. A provider failure happens after the generic response, immediately scrubs the unusable challenge's secrets, and allows same-browser resend recovery after the cooldown. There is no durable mail queue, so process exit can lose scheduled delivery.
-
-Leaving both variables empty keeps login, profile, email verification for an already-delivered challenge, discovery, and the rest of the existing application working. Every otherwise-valid registration or resend request returns the same controlled `503` for every account state, before password hashing, account lookup or mutation, challenge creation, dispatch, or a pending cookie. Automated tests inject mock mail clients and never send real email; live Resend delivery was not part of release verification.
-
-## Local commands
+Stop the services without deleting PostgreSQL data:
 
 ```sh
-pnpm install
-pnpm dev          # starts the API on :3000 and Vite on :5173
-pnpm build        # production-builds contracts, API, and web
-pnpm typecheck
-pnpm test         # runs the API and web test suites
-pnpm db:generate
+docker compose down
+```
+
+`docker compose down --volumes` also removes the local PostgreSQL volume and all of its data; use it only when an intentional clean reset is needed.
+
+## Development and verification
+
+### Host development
+
+The root `.env` is for Compose. Host-run API commands load `apps/api/.env`, so create it separately. These commands retain the Compose database volume, stop the Compose API/web services if present, and run the TypeScript API and Vite locally:
+
+```sh
+docker compose down
+docker compose up --detach db
+cp apps/api/.env.example apps/api/.env
+node -e 'const fs=require("node:fs"),crypto=require("node:crypto"),p="apps/api/.env";fs.writeFileSync(p,fs.readFileSync(p,"utf8").replace(/^JWT_SECRET=.*$/m,`JWT_SECRET=${crypto.randomBytes(32).toString("hex")}`));'
 pnpm db:migrate
 pnpm db:seed
+pnpm dev
 ```
 
-## API and Swagger
+The API starts on `3000` and Vite on `5173`. If the root PostgreSQL credentials or port were changed, update `DATABASE_URL` in `apps/api/.env` before running Prisma or the API. Configure the same paired Resend variables there when testing signup outside Compose.
 
-The versionless API is under `/api`. Public routes are:
+### Build, typecheck, and tests
 
-- `GET /api/health` checks PostgreSQL and returns the shared health contract.
-- `GET /api/discover` is public and returns at most six newest active books. It orders equal creation timestamps by book ID ascending and exposes only `coverSeed`, `title`, `author`, and active genre names.
-- `POST /api/auth/register` accepts only display name, email, and a policy-compliant password. With mail configured, it may stage a new unverified Reader and returns a generic `202` for every accepted address outcome without establishing a session; existing verified accounts are not mutated.
-- `POST /api/auth/verify-email` accepts email and a six-digit code, and also requires the pending-verification cookie from the same active browser setup. A match atomically commits the staged Reader credentials, verifies the email, clears the pending cookie, and establishes the normal session cookie.
-- `POST /api/auth/resend-verification` returns the generic `202` when delivery is configured. A matching active pending cookie may schedule a replacement after cooldown; a missing or stale browser binding cannot attach to or mutate someone else's staged credentials.
-- `POST /api/auth/login` validates seeded credentials and sets a short-lived JWT in an HTTP-only cookie.
-- `POST /api/auth/logout` idempotently expires the session cookie.
-- `GET /api/openapi.json` returns the OpenAPI 3.0.3 document.
-- `GET /api/docs` redirects once to the public Swagger UI at `/api/docs/`.
+```sh
+pnpm typecheck
+pnpm test
+pnpm build
+```
 
-Authenticated reader routes are:
+`pnpm build` compiles the shared contracts, Express API, and React application. The final verified workspace run passed 250 API tests in 21 files and 56 web tests in eight files: 306 tests total. The focused account/authentication/OpenAPI run also passed:
 
-- `GET /api/auth/me` returns the authenticated user and requires a valid session cookie.
-- `GET /api/me/profile` lets an authenticated Reader or Librarian read their email, display name, role, verification timestamp, and creation timestamp.
-- `PUT /api/me/profile` lets either authenticated role change only their display name; email and role remain read-only.
-- `GET /api/books` requires the JWT cookie and returns active book summaries with pagination metadata.
-- `GET /api/books/:bookId` requires the JWT cookie and returns one active book's reader-facing detail.
-- `GET /api/genres` requires the JWT cookie and returns active genre summaries.
-- `GET /api/me/favourite-genres` and `PUT /api/me/favourite-genres` read and replace the complete ordered selection of zero to five unique active genres.
-- `GET /api/me/for-your-shelves` returns at most six active personalised books in preference order, then newest and book ID, excluding books already on the visible reading list.
-- `GET /api/me/reading-list` returns visible entries, including safe unavailable previews for books archived after they were saved.
-- `PUT /api/me/reading-list/:bookId` adds, restores, or updates one entry per user/book; omitting `status` creates a new entry as `WANT_TO_READ` or restores its previous state.
-- `DELETE /api/me/reading-list/:bookId` idempotently soft-removes an entry, including an archived book's entry.
+```sh
+pnpm --filter @amazon-2/api exec vitest run src/account src/auth src/openapi/routes.test.ts
+```
 
-Librarian-only routes are:
+Result: 11 test files and 70 tests passed. The Compose configuration and rebuild passed, PostgreSQL and the API were healthy, the web service was running, four migrations had no pending work, and live API checks returned `200` for health, discovery, and Swagger after its redirect. SPA page-shell `GET` requests to `/`, `/sign-up`, `/verify-email`, and `/account` also returned `200`. Registration email delivery and email verification were not exercised end to end; no live email was sent.
 
-- `GET /api/admin/books` and `POST /api/admin/books` list active/archived books and create books.
-- `PUT /api/admin/books/:bookId` and `DELETE /api/admin/books/:bookId` replace and soft-archive a book.
-- `POST /api/admin/books/:bookId/restore` restores a book with at least one active associated genre.
-- `GET /api/admin/genres` and `POST /api/admin/genres` list active/archived genres and create genres.
-- `PUT /api/admin/genres/:genreId` and `DELETE /api/admin/genres/:genreId` replace and soft-archive a genre.
-- `POST /api/admin/genres/:genreId/restore` restores a genre when its active name and slug remain unique.
+The Compose `web` service intentionally runs Vite for local evaluation. `pnpm build` creates production assets, but hardened production hosting and deployment are outside this repository's scope.
 
-`GET /api/books` accepts the query keys `q`, `genre` (slug), `yearFrom`, `yearTo`, `sort`, `page`, and `pageSize`. The supported sorts are `newest`, `title`, and `rating`; defaults are `sort=newest`, `page=1`, and `pageSize=24`. `page` is capped at 10,000 and `pageSize` at 48. Search is a case-insensitive partial match against title and author only. Reader-facing catalogue responses expose active books and genres only, and an archived or unknown book detail returns the same `404` response.
+## Product and roles
 
-Registration passwords require 12 to 128 characters including lowercase, uppercase, and a number. Candidate display names and password hashes live in a non-authenticated `PendingRegistration` for at most 24 hours. Its 256-bit browser token and each six-digit verification code are persisted only as keyed hashes. The short-lived pending cookie is HTTP-only, `SameSite=Lax`, and `Secure` when configured; it is not an authenticated session. Only a matching email, code, pending registration, and cookie can atomically commit Reader credentials. Codes expire after ten minutes, allow at most five attempts, and are single-use.
+Amazon 2.0 is an independent book-library application built for the Speedlane take-home. It is not affiliated with Amazon and does not use Amazon branding or trade dress.
 
-Register, verification, and resend routes have process-local fixed-window limits. The 60-second resend cooldown includes terminal challenge outcomes and never extends the 24-hour setup lifetime. A missing, stale, or mismatched browser hint safely returns the visitor to a fresh sign-up; duplicate or out-of-order requests cannot commit credentials without the bound challenge. The frontend's `localStorage` value is only a normalized `{ email, startedAt }` UX hint: it contains no name, password, code, cookie, or server credential and is never authoritative. A verified account is required before login or authenticated middleware will establish access.
+- **Visitor:** sees the public landing page and at most six newest active book previews; can sign in or begin Reader signup. The authenticated catalogue remains private.
+- **Reader:** can verify email, sign in/out, edit only their display name, browse/search/filter/sort the catalogue, choose up to five ordered favourite genres, receive personalised shelf suggestions, view book details, and manage a soft-removable reading list.
+- **Librarian:** has all Reader capabilities plus the Back Room for creating, editing, archiving, and restoring books and genres. Archive operations are reversible; a genre cannot be archived when it is an active book's only active genre.
 
-Every `DELETE` operation above is a reversible soft archive/removal; the application never permanently deletes product records. Swagger documents 22 API paths and 29 operations. The document is generated from shared Zod contracts with `@asteasolutions/zod-to-openapi` 7.3.4 and served locally with `swagger-ui-express` 5.0.1. Its normal-session and pending-verification cookie schemes are intentional public contract metadata; cookie values are omitted, and the document contains no passwords, JWT secrets, verification codes/hashes, or credential examples.
+Public signup creates Reader accounts only and rejects role or other privileged fields. Signup first stages candidate credentials in a browser-bound, non-authenticated setup; a six-digit code and the matching HTTP-only pending cookie must verify before the Reader credentials are committed and the normal session begins. Librarian onboarding is intentionally a separate, unimplemented administrative concern.
 
-## Database and seeds
+Password reset, email change, external identity providers, reviews, borrowing, payments, analytics, and a production deployment are not implemented.
 
-Prisma models users, 24-hour pending registrations, hashed single-use email-verification challenges, books, genres, book/genre associations, ordered favourite genres, and reading-list entries, including soft-archive/removal timestamps and uniqueness constraints. Four migrations are committed. The idempotent offline seed creates 240 deterministic active books, 12 active genres, and these two already-verified account fixtures:
+## Deterministic development fixtures
 
-## Seeded local accounts
+The idempotent seed creates these already-verified local fixtures; do not reuse their credentials outside this development stack.
 
 | Role | Email | Password |
 | --- | --- | --- |
 | Reader | `reader@amazon2.local` | `ReaderDemo123!` |
 | Librarian | `librarian@amazon2.local` | `LibrarianDemo123!` |
 
-Authentication derives the role and verification state from the server-side record and never accepts a client-selected role. The seed credentials are for local evaluation only.
+The seed also reconciles 12 active genres and 240 deterministic active books without network access.
 
-## Layout
+## Architecture
+
+This is a TypeScript pnpm workspace with three main packages:
 
 ```text
-apps/api           Express API, feature routers, Prisma migrations/seeds, OpenAPI, and API tests
-apps/web           React + Vite public, reader, and librarian application with a relative API proxy
-packages/contracts Shared strict Zod schemas and inferred TypeScript types
-docs/design        Library Card Chaos visual, responsive, and accessibility system
-compose.yaml       Trusted-local Docker Compose services for web, API, and PostgreSQL
+apps/web           React 19 + Vite client, responsive routes, and relative /api proxy
+apps/api           Express 5 API, Prisma persistence, feature routers, OpenAPI, and tests
+packages/contracts Strict shared Zod schemas and inferred TypeScript types
 ```
 
-## Verification and tests
+- **Persistence:** PostgreSQL 16 with Prisma 6, four committed migrations, deterministic IDs/data, and reversible `archivedAt`/`removedAt` workflows.
+- **API:** versionless `/api` routes, strict request/response contracts, narrow Prisma projections, centralized CORS/error handling, and contract-derived Swagger/OpenAPI documentation.
+- **Authentication:** scrypt password hashes and a short-lived HS256 JWT in an HTTP-only, `SameSite=Lax` cookie. Roles and verification state are reloaded from PostgreSQL.
+- **Email verification:** the official Resend SDK sits behind an injected delivery interface. Codes expire after ten minutes, are single-use and attempt-limited, and are stored only as keyed hashes. Pending signup lasts at most 24 hours. Delivery is best-effort and process-local; there is no durable mail queue.
+- **Services:** Compose runs `db` (persistent PostgreSQL), `api` (build, migrate, start, and health check), and `web` (Vite plus an API proxy). The API waits for a healthy database and the web service waits for a healthy API.
+- **Frontend:** React Router separates public, Reader, and Librarian surfaces. The verification UI keeps only a non-authoritative normalized email/start-time hint in local storage; JWT and pending-cookie values remain inaccessible to JavaScript.
 
-The final release verification used these commands, with `<safe-32+-character-secret>` replaced by a non-committed value:
+The account rate limiter is bounded but process-local, so a multi-instance deployment would need shared enforcement. Expired pending-registration secrets are scrubbed before API startup and periodically while it runs.
 
-```sh
-pnpm typecheck && pnpm test && pnpm build
-pnpm --filter @amazon-2/api exec vitest run src/account src/auth src/openapi/routes.test.ts
-JWT_SECRET=<safe-32+-character-secret> docker compose config --quiet
-JWT_SECRET=<safe-32+-character-secret> docker compose up --build --detach
-JWT_SECRET=<safe-32+-character-secret> docker compose ps
-JWT_SECRET=<safe-32+-character-secret> docker compose exec api pnpm --filter @amazon-2/api prisma:migrate:deploy
-JWT_SECRET=<safe-32+-character-secret> docker compose exec api pnpm --filter @amazon-2/api prisma:seed
-curl --fail --silent --show-error http://localhost:3000/api/health
-curl --fail --silent --show-error --location --output /dev/null http://localhost:3000/api/docs
-curl --fail --silent --show-error http://localhost:3000/api/openapi.json
-git diff --check
-```
+## API surface
 
-The combined workspace typecheck, test, and production-build command passed, as did the final diff check. `pnpm test` passed 250 API tests in 21 files and 56 web tests in eight files: 306 tests total. The focused account, authentication, and OpenAPI command passed 70 tests in 11 files. Coverage includes Reader-only staged registration, browser/challenge binding, uniform unconfigured-mail behavior, generic configured-mail outcomes, resend and delivery-failure cleanup, scheduled secret cleanup, profile access and display-name-only updates, route limits, role boundaries, error/CORS policy, discovery, catalogue, engagement/archive semantics, repeatable seed lifecycles, admin validation and transactions, OpenAPI safety, public and authenticated navigation, reader/Back Room/account workflows, and genre accessibility.
+Swagger at `/api/docs` is the definitive operation-level reference. The generated document contains 22 paths and 29 implemented operations, including:
 
-Compose configuration validation and the image rebuild passed; PostgreSQL and API reported healthy and the web service was running on rebuilt/current images. Prisma reported four applied migrations with none pending. The seed reported 240 active books, 12 active genres, and two already-verified users. Live API checks returned `200` for health and discovery (six previews); Swagger returned a final `200` after one redirect, and OpenAPI contained 22 paths and 29 operations. Live web checks returned `200` for `/`, `/sign-up`, `/verify-email`, and `/account`. Resend remained intentionally unconfigured: provider behavior was verified through injected/mock delivery only, not by sending live mail.
+- public health, discovery, login/logout, Reader registration, and email verification/resend;
+- authenticated profile, active catalogue/detail/genres, favourite genres, personalised shelves, and reading-list routes; and
+- Librarian-only book and genre create, edit, archive, and restore routes.
+
+Swagger UI and the OpenAPI JSON are served as documentation endpoints in addition to those documented operations.
+
+Public discovery returns at most six newest active books with a stable book-ID tie-breaker and only cover, title, author, and active-genre preview fields. Reader-facing catalogue routes exclude archived records; existing reading-list history retains a safe unavailable preview when its book is later archived.
 
 ## Accessibility
 
-The implementation uses semantic landmarks, labels and grouped controls, skip links, focus management and visible focus treatment, 44px touch targets, responsive navigation/forms/tables, live error and success feedback, keyboard-operable drawers/dialogs, reduced-motion handling, and forced-colour styles. Fraunces Variable and IBM Plex Mono are self-hosted in the application bundle through Fontsource with swap behavior and no font CDN. Automated UI tests cover the highest-risk navigation, validation, state, archive, role, and genre-accessibility flows.
+The client uses semantic landmarks and labels, skip links, visible focus treatment, grouped controls, live status/error feedback, 44px targets, keyboard-operable dialogs/drawers, responsive layouts, reduced-motion handling, and forced-colour styles. Fraunces Variable and IBM Plex Mono are bundled locally rather than loaded from a CDN.
 
-The independent QA browser backend was unavailable. Rendered 320px and desktop geometry, complete physical-keyboard journeys, forced-colours and reduced-motion behavior at runtime, browser console/network state, and rendered Swagger interaction still require a manual browser pass; they are not claimed as certified.
+Automated tests cover the highest-risk navigation, validation, account, archive, role, and assistive-text flows. The independent browser-QA backend remained unavailable after retry, so rendered geometry, full physical-keyboard journeys, runtime forced-colour/reduced-motion checks, console/network inspection, and rendered Swagger interaction still need a manual browser pass.
 
-## Security and deployment scope
+## How it was built
 
-The final fixes return oversized non-admin JSON as a safe structured `413`; every CORS response variant includes `Vary: Origin`, and rejected origins are `no-store`. Pending registration prevents account credential changes from being committed without the browser-bound challenge, and unconfigured mail fails uniformly before account-state access.
+1. The product rules were established in [`docs/product-spec.md`](docs/product-spec.md), with responsive and accessible interaction guidance in [`docs/design/design-system.md`](docs/design/design-system.md).
+2. Shared Zod contracts defined runtime and TypeScript boundaries before the Express feature routers and React flows were integrated.
+3. Prisma migrations and an idempotent offline seed established deterministic persistence, roles, archives, preferences, reading lists, and browser-bound account verification.
+4. Focused API/UI suites, workspace typechecking/builds, independent QA/security review, Compose validation, migrations, seeding, and live endpoint checks closed the milestone.
 
-The final `pnpm audit --prod --json` was not performed because this environment's approval policy rejected transmitting dependency metadata to the external registry. No clean or failing advisory claim is made; run the registry-backed production dependency scan in trusted CI or another user-authorized environment before deployment.
+Architecture trade-offs and AI-assisted workflow details are recorded in [`DECISIONS.md`](DECISIONS.md).
 
-Docker Compose is trusted local development infrastructure, not a production deployment. Internet exposure would additionally require:
+## Troubleshooting
 
-- restricted host publishing, non-default unprivileged database credentials/roles, non-root minimal runtime containers, production web serving instead of Vite, and immutable image/base references;
-- a shared rate-limit store for multi-instance account enforcement plus limits for other abuse-sensitive routes, a deployment-calibrated password-hashing cost, stolen-token revocation and key rotation, and a reviewed explicit CSRF strategy beyond the current `SameSite=Lax` cookie plus exact-origin credentialed CORS;
-- production CSP, HSTS, `nosniff`, privileged-action audit logging, and structured security observability; and
-- database-backed concurrency/integration coverage in addition to the current mocked-Prisma route tests.
-
-Sensitive account-setup cleanup runs before the API starts listening and every five minutes thereafter. It uses a batch size of 100 and a maximum of 100 batches per run, uses generic operational logging, scrubs a failed delivery immediately, and removes expired 24-hour pending setup data after challenge secrets are scrubbed.
-
-The implemented account rate limiter is bounded and fail-closed but process-local, so separate API instances do not share counters. Verification mail is also an in-process best-effort task with no durable queue. Password reset, email-address change, librarian onboarding, and a production email-delivery operational runbook remain feature gaps.
+- **Compose reports `JWT_SECRET` is missing or invalid:** copy `.env.example` to `.env` and run the secret-generation command from Setup. The committed placeholder is intentionally rejected.
+- **Signup or resend returns `503`:** configure both Resend variables, verify that `RESEND_FROM_EMAIL` belongs to a verified Resend sender/domain, then restart the API. With both variables empty, `503` is intentional and uniform.
+- **The API is unhealthy or exits during startup:** inspect `docker compose logs api db`. If the API container is running, use `docker compose exec api pnpm --filter @amazon-2/api prisma:migrate:deploy`. If it exited, confirm or start PostgreSQL with `docker compose up --detach db` and `docker compose ps db`, then run the migration in a disposable API container with `docker compose run --rm api pnpm --filter @amazon-2/api prisma:migrate:deploy`.
+- **A host port is already in use:** change `POSTGRES_PORT`, `API_PORT`, or `WEB_PORT` in `.env`, then recreate the stack. Direct URLs in this README assume the defaults.
+- **Changed PostgreSQL credentials do not affect an existing volume:** PostgreSQL initializes credentials only when its data directory is new. Preserve the current values, or intentionally reset with `docker compose down --volumes` and reseed; the reset destroys local data.
+- **Host development cannot connect to PostgreSQL:** check `DATABASE_URL` in `apps/api/.env`, especially after changing Compose database credentials or `POSTGRES_PORT`.
+- **Cookies work locally but not behind HTTPS, or vice versa:** keep `COOKIE_SECURE=false` for local HTTP and set it to `true` only for HTTPS. Ensure `CORS_ORIGIN` exactly matches the browser origin in host development.
+- **Dependency advisories are unknown:** the final `pnpm audit --prod --json` was not performed because this environment's policy did not permit transmitting dependency metadata to the external registry. Run it in trusted CI or another user-authorized environment; no clean or failing audit result is claimed here.
