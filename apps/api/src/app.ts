@@ -1,5 +1,11 @@
 import express from "express";
 
+import {
+  adminErrorHandler,
+  adminNotFoundHandler,
+  createAdminRouter,
+  type AdminStore,
+} from "./admin/routes.js";
 import { createAuthRouter, type AuthStore, type AuthUserRecord } from "./auth/routes.js";
 import { createCatalogueRouter, type CatalogueStore } from "./catalogue/routes.js";
 import { createDiscoveryRouter, type DiscoveryStore } from "./discovery/routes.js";
@@ -12,6 +18,7 @@ export interface DatabaseHealthcheck extends HealthStore {}
 
 export interface AppDatabase
   extends DatabaseHealthcheck,
+    AdminStore,
     AuthStore,
     CatalogueStore,
     DiscoveryStore,
@@ -51,7 +58,10 @@ export function createApp(database: AppDatabase, config: AppConfig) {
   );
   app.use("/api", createCatalogueRouter(database, tokenConfig));
   app.use("/api", createEngagementRouter(database, tokenConfig));
+  app.use("/api/admin", createAdminRouter(database, tokenConfig));
+  app.use("/api/admin", adminNotFoundHandler);
 
+  app.use(adminErrorHandler);
   app.use(notFoundHandler);
   app.use(errorHandler);
 

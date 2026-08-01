@@ -107,6 +107,16 @@ function testDatabase(
     ]),
     upsertReadingListEntry: vi.fn().mockResolvedValue(availableEntry),
     removeReadingListEntry: vi.fn().mockResolvedValue(undefined),
+    findAdminBooks: vi.fn().mockResolvedValue([]),
+    createAdminBook: vi.fn().mockResolvedValue({ kind: "not_found" }),
+    updateAdminBook: vi.fn().mockResolvedValue({ kind: "not_found" }),
+    archiveAdminBook: vi.fn().mockResolvedValue({ kind: "not_found" }),
+    restoreAdminBook: vi.fn().mockResolvedValue({ kind: "not_found" }),
+    findAdminGenres: vi.fn().mockResolvedValue([]),
+    createAdminGenre: vi.fn().mockResolvedValue({ kind: "not_found" }),
+    updateAdminGenre: vi.fn().mockResolvedValue({ kind: "not_found" }),
+    archiveAdminGenre: vi.fn().mockResolvedValue({ kind: "not_found" }),
+    restoreAdminGenre: vi.fn().mockResolvedValue({ kind: "not_found" }),
     ...overrides,
   };
 }

@@ -1,5 +1,17 @@
 import { PrismaClient } from "@prisma/client";
 
+import {
+  archiveAdminBook,
+  archiveAdminGenre,
+  createAdminBook,
+  createAdminGenre,
+  findAdminBooks,
+  findAdminGenres,
+  restoreAdminBook,
+  restoreAdminGenre,
+  updateAdminBook,
+  updateAdminGenre,
+} from "./admin/database.js";
 import { createApp, type AppDatabase } from "./app.js";
 import {
   findActiveGenres,
@@ -76,6 +88,36 @@ const database: AppDatabase = {
   },
   async removeReadingListEntry(userId, bookId) {
     return removeReadingListEntry(prisma, userId, bookId);
+  },
+  async findAdminBooks(status) {
+    return findAdminBooks(prisma, status);
+  },
+  async createAdminBook(input) {
+    return createAdminBook(prisma, input);
+  },
+  async updateAdminBook(bookId, input) {
+    return updateAdminBook(prisma, bookId, input);
+  },
+  async archiveAdminBook(bookId) {
+    return archiveAdminBook(prisma, bookId);
+  },
+  async restoreAdminBook(bookId) {
+    return restoreAdminBook(prisma, bookId);
+  },
+  async findAdminGenres(status) {
+    return findAdminGenres(prisma, status);
+  },
+  async createAdminGenre(input) {
+    return createAdminGenre(prisma, input);
+  },
+  async updateAdminGenre(genreId, input) {
+    return updateAdminGenre(prisma, genreId, input);
+  },
+  async archiveAdminGenre(genreId) {
+    return archiveAdminGenre(prisma, genreId);
+  },
+  async restoreAdminGenre(genreId) {
+    return restoreAdminGenre(prisma, genreId);
   },
 };
 
