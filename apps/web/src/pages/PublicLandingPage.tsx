@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { BookCover } from "../components/BookCover";
+import { OffsetIndexMark } from "../components/OffsetIndexMark";
 import { getPublicDiscovery } from "../discovery/api";
 
 type DiscoveryState =
@@ -76,13 +77,10 @@ export function PublicLandingPage() {
         <section aria-labelledby="public-hero-title" className="public-poster">
           <div className="public-poster__inner">
             <header className="public-masthead">
-              <div aria-label="Amazon 2.0" className="public-wordmark">
-                <span>Amazon</span>
-                <span className="public-wordmark__edition">2.0</span>
+              <div className="public-wordmark">
+                <OffsetIndexMark className="public-wordmark__mark" size={64} />
+                <span>Amazon 2.0</span>
               </div>
-              <p aria-hidden="true" className="public-masthead__ledger">
-                Community catalogue · Card 002
-              </p>
             </header>
 
             <div className="public-poster__composition">
@@ -97,7 +95,7 @@ export function PublicLandingPage() {
                   Sign in
                 </Link>
                 <p className="public-disclaimer">
-                  Amazon 2.0 is an independent library demo and is not affiliated with Amazon.
+                  Amazon 2.0 is an independent library platform and is not affiliated with Amazon.
                 </p>
               </div>
 
@@ -144,9 +142,9 @@ export function PublicLandingPage() {
 
         <section aria-labelledby="public-closing-title" className="public-closing">
           <div className="public-closing__inner">
-            <p className="eyebrow">Your card is waiting</p>
+            <p className="eyebrow">MEMBER ACCESS</p>
             <h2 id="public-closing-title">The rest of the collection is inside.</h2>
-            <p>Sign in with a demo library card to browse, filter, and build your shelf.</p>
+            <p>Sign in with your library card to browse, filter, and build your shelf.</p>
             <Link className="button button--secondary" to="/sign-in">
               Sign in to browse
             </Link>

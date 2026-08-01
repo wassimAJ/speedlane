@@ -6,6 +6,7 @@ import {
 import { useState, type FormEvent } from "react";
 
 import { AdminResponseError } from "./api";
+import { Field, FieldRow } from "./Field";
 import { FormErrorSummary } from "./FormErrorSummary";
 
 export function AdminGenreForm({
@@ -50,6 +51,9 @@ export function AdminGenreForm({
     }
   }
 
+  const nameError = errors.name ? "Enter a genre name." : undefined;
+  const slugError = errors.slug ? "Use lowercase letters, numbers, and single hyphens." : undefined;
+
   return (
     <section aria-labelledby="genre-form-title" className="admin-form-sheet admin-genre-form-sheet">
       <div className="admin-form-sheet__heading">
@@ -62,30 +66,29 @@ export function AdminGenreForm({
       {Object.keys(errors).length > 0 ? (
         <FormErrorSummary
           items={[
-            ...(errors.name ? [{ controlId: "admin-genre-name", label: "Name", message: "Enter a genre name." }] : []),
-            ...(errors.slug ? [{ controlId: "admin-genre-slug", label: "Slug", message: "Use lowercase letters, numbers, and single hyphens." }] : []),
+            ...(nameError ? [{ controlId: "admin-genre-name", label: "Name", message: nameError }] : []),
+            ...(slugError ? [{ controlId: "admin-genre-slug", label: "Slug", message: slugError }] : []),
           ]}
         />
       ) : null}
       {serverError ? <p className="notice admin-form-error" role="alert">{serverError}</p> : null}
       <form className="admin-form admin-genre-form" noValidate onSubmit={(event) => void handleSubmit(event)}>
-        <div className="field">
-          <label htmlFor="admin-genre-name">Name</label>
-          <input aria-describedby={errors.name ? "admin-genre-name-error" : undefined} aria-invalid={Boolean(errors.name)} id="admin-genre-name" maxLength={100} onChange={(event) => setName(event.target.value)} value={name} />
-          {errors.name ? <span className="form-error" id="admin-genre-name-error"><span className="visually-hidden">Error: </span>Enter a genre name.</span> : null}
-        </div>
-        <div className="field">
-          <label htmlFor="admin-genre-slug">Slug</label>
-          <input aria-describedby={errors.slug ? "admin-genre-slug-hint admin-genre-slug-error" : "admin-genre-slug-hint"} aria-invalid={Boolean(errors.slug)} id="admin-genre-slug" onChange={(event) => setSlug(event.target.value)} value={slug} />
-          <span className="field-hint" id="admin-genre-slug-hint">Lowercase words separated by hyphens.</span>
-          {errors.slug ? <span className="form-error" id="admin-genre-slug-error"><span className="visually-hidden">Error: </span>Use lowercase letters, numbers, and single hyphens.</span> : null}
-        </div>
-        <div className="admin-form__actions">
-          <button className="button button--quiet" disabled={saving} onClick={onCancel} type="button">Cancel</button>
-          <button className="button button--primary" disabled={saving} type="submit">
-            {saving ? "Saving…" : genre ? "Save changes" : "Create genre"}
-          </button>
-        </div>
+        <FieldRow paired>
+          <Field controlId="admin-genre-name" error={nameError} label="Name">
+            {(accessibility) => <input {...accessibility} id="admin-genre-name" maxLength={100} onChange={(event) => setName(event.target.value)} value={name} />}
+          </Field>
+          <Field controlId="admin-genre-slug" error={slugError} help="Lowercase words separated by hyphens." label="Slug">
+            {(accessibility) => <input {...accessibility} id="admin-genre-slug" onChange={(event) => setSlug(event.target.value)} value={slug} />}
+          </Field>
+        </FieldRow>
+        <FieldRow>
+          <div className="admin-form__actions">
+            <button className="button button--quiet" disabled={saving} onClick={onCancel} type="button">Cancel</button>
+            <button className="button button--primary" disabled={saving} type="submit">
+              {saving ? "Saving…" : genre ? "Save changes" : "Create genre"}
+            </button>
+          </div>
+        </FieldRow>
       </form>
     </section>
   );

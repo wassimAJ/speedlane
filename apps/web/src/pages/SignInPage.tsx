@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
+import { OffsetIndexMark } from "../components/OffsetIndexMark";
 
 interface SignInLocationState {
   from?: string;
@@ -55,13 +56,13 @@ export function SignInPage() {
   return (
     <main className="sign-in-page" id="main-content">
       <section aria-labelledby="sign-in-title" className="sign-in-sheet">
-        <div className="sign-in-brand" aria-hidden="true">
-          <span className="sign-in-brand__card">A2</span>
-          <span className="sign-in-brand__rule" />
+        <div className="sign-in-lockup">
+          <OffsetIndexMark size={40} />
+          <span>Amazon 2.0</span>
         </div>
         <p className="eyebrow">THE LIBRARY DESK</p>
         <h1 id="sign-in-title">Sign in to the open stacks</h1>
-        <p className="lede">Use a seeded demo account to browse the full active collection.</p>
+        <p className="lede">Sign in to browse the full active collection.</p>
 
         {auth.notice ? (
           <p className="notice notice--info" role="status">
@@ -104,21 +105,8 @@ export function SignInPage() {
           </button>
         </form>
 
-        <aside aria-labelledby="demo-account-title" className="demo-account">
-          <h2 id="demo-account-title">Reader demo card</h2>
-          <dl>
-            <div>
-              <dt>Email</dt>
-              <dd>reader@amazon2.local</dd>
-            </div>
-            <div>
-              <dt>Password</dt>
-              <dd>ReaderDemo123!</dd>
-            </div>
-          </dl>
-        </aside>
         <p className="independence-note">
-          Amazon 2.0 is an independent library demo and is not affiliated with Amazon.
+          Amazon 2.0 is an independent library platform and is not affiliated with Amazon.
         </p>
       </section>
     </main>

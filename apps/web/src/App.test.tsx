@@ -83,6 +83,15 @@ describe("authenticated routing", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Sign in to the open stacks" })).toBeInTheDocument();
+    expect(screen.getByText("Sign in to browse the full active collection.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Amazon 2.0 is an independent library platform and is not affiliated with Amazon.",
+      ),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".sign-in-lockup [data-offset-index-mark]")).toBeInTheDocument();
+    expect(screen.queryByText("reader@amazon2.local")).not.toBeInTheDocument();
+    expect(screen.queryByText("ReaderDemo123!")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/auth/me",
       expect.objectContaining({ credentials: "include" }),
@@ -113,6 +122,9 @@ describe("authenticated routing", () => {
 
     expect(await screen.findByRole("heading", { name: "Find your next book" })).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "The Unwritten Atlas" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Amazon 2.0" })).toContainElement(
+      document.querySelector(".wordmark [data-offset-index-mark]"),
+    );
 
     const loginCall = fetchMock.mock.calls.find(([input]) => String(input) === "/api/auth/login");
     expect(loginCall?.[1]).toEqual(

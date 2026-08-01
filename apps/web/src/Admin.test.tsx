@@ -138,10 +138,33 @@ describe("book management", () => {
     );
 
     await browser.click(await screen.findByRole("button", { name: "Add book" }));
+    const author = screen.getByLabelText("Author");
+    const isbn = screen.getByLabelText("ISBN");
+    const authorRow = author.closest(".admin-field-row--paired");
+    expect(authorRow).not.toBeNull();
+    expect(within(authorRow as HTMLElement).getByLabelText("ISBN")).toBe(isbn);
+    expect(author).not.toHaveAttribute("aria-describedby");
+    expect(author).not.toHaveAttribute("aria-invalid");
+    expect(author.closest(".admin-field")?.querySelector(".admin-field__support")).toHaveClass(
+      "admin-field__support--empty",
+    );
+    expect(isbn).toHaveAttribute("aria-describedby", "admin-book-isbn-hint");
+    expect(isbn.closest(".admin-field")?.querySelector(".admin-field__support")).not.toHaveClass(
+      "admin-field__support--empty",
+    );
+    expect(screen.getByLabelText("Publication year").closest(".admin-field-row--paired")).toContainElement(
+      screen.getByLabelText("Page count"),
+    );
+    expect(screen.getByLabelText("Language").closest(".admin-field-row--paired")).toContainElement(
+      screen.getByLabelText("Rating"),
+    );
+    expect(screen.getByLabelText("Title").closest(".admin-field-row")).not.toHaveClass(
+      "admin-field-row--paired",
+    );
     await browser.type(screen.getByLabelText("Title"), "  The Long Index  ");
-    await browser.type(screen.getByLabelText("Author"), "Avery North");
+    await browser.type(author, "Avery North");
     await browser.type(screen.getByLabelText("Synopsis"), "A catalogue mystery.");
-    await browser.type(screen.getByLabelText("ISBN"), "9780306406158");
+    await browser.type(isbn, "9780306406158");
     await browser.type(screen.getByLabelText("Publication year"), "2025");
     await browser.type(screen.getByLabelText("Page count"), "280");
     await browser.type(screen.getByLabelText("Language"), "English");
@@ -155,13 +178,24 @@ describe("book management", () => {
       name: "Correct the highlighted fields before saving.",
     });
     expect(errorSummary).toHaveFocus();
-    expect(screen.getByLabelText("ISBN")).toHaveAttribute(
+    expect(isbn).toHaveAttribute(
       "aria-describedby",
       "admin-book-isbn-hint admin-book-isbn-error",
     );
+    expect(isbn).toHaveAttribute("aria-invalid", "true");
+    const isbnFieldError = document.getElementById("admin-book-isbn-error");
+    expect(isbnFieldError).toHaveTextContent("Error: ISBN checksum is invalid.");
+    const visibleErrorPrefix = isbnFieldError?.querySelector(".form-error__prefix");
+    expect(visibleErrorPrefix).toBeInTheDocument();
+    expect(visibleErrorPrefix).not.toHaveClass("visually-hidden");
+    expect(
+      Array.from(
+        isbn.closest(".admin-field")?.querySelector(".admin-field__support")?.children ?? [],
+      ).map((element) => element.id),
+    ).toEqual(["admin-book-isbn-hint", "admin-book-isbn-error"]);
     expect(screen.getByRole("group", { name: /Genres/ })).toHaveAttribute(
       "aria-describedby",
-      "admin-book-genreIds-error",
+      "admin-book-genres-error",
     );
     await browser.click(within(errorSummary).getByRole("link", { name: "ISBN: ISBN checksum is invalid." }));
     expect(screen.getByLabelText("ISBN")).toHaveFocus();
@@ -291,6 +325,13 @@ describe("genre management", () => {
     );
 
     await browser.click(await screen.findByRole("button", { name: "Add genre" }));
+    const name = screen.getByLabelText("Name");
+    const slug = screen.getByLabelText("Slug");
+    const pair = name.closest(".admin-field-row--paired");
+    expect(pair).not.toBeNull();
+    expect(within(pair as HTMLElement).getByLabelText("Slug")).toBe(slug);
+    expect(name).not.toHaveAttribute("aria-describedby");
+    expect(slug).toHaveAttribute("aria-describedby", "admin-genre-slug-hint");
     await browser.type(screen.getByLabelText("Slug"), "BAD SLUG");
     await browser.click(screen.getByRole("button", { name: "Create genre" }));
 
@@ -298,14 +339,15 @@ describe("genre management", () => {
       name: "Correct the highlighted fields before saving.",
     });
     expect(summary).toHaveFocus();
-    expect(screen.getByLabelText("Name")).toHaveAttribute(
+    expect(name).toHaveAttribute(
       "aria-describedby",
       "admin-genre-name-error",
     );
-    expect(screen.getByLabelText("Slug")).toHaveAttribute(
+    expect(slug).toHaveAttribute(
       "aria-describedby",
       "admin-genre-slug-hint admin-genre-slug-error",
     );
+    expect(slug).toHaveAttribute("aria-invalid", "true");
     await browser.click(within(summary).getByRole("link", { name: /Slug:/ }));
     expect(screen.getByLabelText("Slug")).toHaveFocus();
     expect(fetchMock.mock.calls.some(([input, init]) => String(input) === "/api/admin/genres" && init?.method === "POST")).toBe(false);

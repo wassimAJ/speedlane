@@ -63,13 +63,16 @@ describe("public landing page", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    render(
+    const { container } = render(
       <MemoryRouter initialEntries={["/"]}>
         <App />
       </MemoryRouter>,
     );
 
     expect(screen.getByRole("heading", { name: "A library, reshuffled." })).toBeInTheDocument();
+    expect(container.querySelector(".public-wordmark [data-offset-index-mark]")).toBeInTheDocument();
+    expect(screen.getByText("Amazon 2.0")).toBeInTheDocument();
+    expect(screen.queryByText(/Community catalogue|Card 002/i)).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Loading the public shelves…");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -119,9 +122,14 @@ describe("public landing page", () => {
 
     expect(
       screen.getByText(
-        "Amazon 2.0 is an independent library demo and is not affiliated with Amazon.",
+        "Amazon 2.0 is an independent library platform and is not affiliated with Amazon.",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("MEMBER ACCESS")).toBeInTheDocument();
+    expect(
+      screen.getByText("Sign in with your library card to browse, filter, and build your shelf."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/demo|seeded|Your card is waiting/i)).not.toBeInTheDocument();
     await browser.click(screen.getByRole("link", { name: "Sign in" }));
 
     expect(

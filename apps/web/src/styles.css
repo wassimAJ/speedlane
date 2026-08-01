@@ -321,39 +321,19 @@ textarea {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: clamp(3rem, 14vw, 9rem);
+  font-size: clamp(2.5rem, 11vw, 8rem);
   font-weight: 700;
-  letter-spacing: -0.075em;
+  letter-spacing: -0.065em;
   line-height: 0.82;
 }
 
-.public-wordmark__edition {
-  display: inline-grid;
+.public-wordmark__mark {
   flex: 0 0 auto;
-  min-width: 1.5em;
-  min-height: 1.08em;
-  place-items: center;
-  border: 2px solid var(--color-ink);
-  padding-inline: 0.12em 0.17em;
-  color: white;
-  background: var(--color-library-red);
-  font-family: var(--font-utility);
-  font-size: 0.36em;
-  letter-spacing: -0.08em;
-  line-height: 1;
-  transform: rotate(2deg);
-}
-
-.public-masthead__ledger {
-  display: none;
-  margin: 0;
-  font-family: var(--font-utility);
-  font-size: 0.7rem;
-  text-align: right;
-  text-transform: uppercase;
+  width: 48px;
+  height: 48px;
 }
 
 .public-poster__composition {
@@ -594,10 +574,6 @@ textarea {
     padding-inline: 1.25rem;
   }
 
-  .public-masthead__ledger {
-    display: block;
-  }
-
   .public-preview-list {
     gap-inline: var(--space-6);
   }
@@ -607,6 +583,11 @@ textarea {
   .public-poster,
   .public-closing {
     padding-inline: var(--space-6);
+  }
+
+  .public-wordmark__mark {
+    width: 64px;
+    height: 64px;
   }
 
   .public-discovery__heading {
@@ -693,73 +674,20 @@ textarea {
   color: var(--color-brown);
 }
 
-.sign-in-brand {
-  position: absolute;
-  top: -1.15rem;
-  right: var(--space-4);
-  display: grid;
-  width: 5rem;
-  aspect-ratio: 3 / 2;
-  place-items: center;
-  border: 2px solid var(--color-ink);
-  background: var(--color-library-red);
-  color: white;
-  box-shadow: 3px 4px 0 rgb(27 27 27 / 16%);
+.sign-in-lockup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
   font-family: var(--font-display);
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  transform: rotate(3deg);
-}
-
-.sign-in-brand__rule {
-  position: absolute;
-  right: -0.5rem;
-  bottom: 0.45rem;
-  width: 3.25rem;
-  border-top: 2px solid white;
 }
 
 .sign-in-form {
   display: grid;
   gap: var(--space-4);
   margin-top: var(--space-6);
-}
-
-.demo-account {
-  margin-top: var(--space-8);
-  border-top: 1px solid var(--color-rule-soft);
-  padding-top: var(--space-4);
-}
-
-.demo-account h2 {
-  margin-bottom: var(--space-3);
-  font-size: 1.25rem;
-}
-
-.demo-account dl {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  font-family: var(--font-utility);
-  font-size: 0.75rem;
-}
-
-.demo-account dl div {
-  display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
-  gap: var(--space-2);
-}
-
-.demo-account dt {
-  color: var(--color-brown);
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.demo-account dd {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 
 .independence-note {
@@ -792,11 +720,10 @@ textarea {
 }
 
 .wordmark {
-  position: relative;
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  padding-left: 0.65rem;
+  gap: var(--space-2);
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: 1.25rem;
@@ -805,14 +732,8 @@ textarea {
   white-space: nowrap;
 }
 
-.wordmark__card {
-  position: absolute;
-  z-index: -1;
-  left: 0;
-  width: 1.15rem;
-  height: 1.8rem;
-  background: var(--color-library-red);
-  transform: rotate(4deg);
+.wordmark__mark {
+  flex: 0 0 auto;
 }
 
 .current-destination {
@@ -1115,13 +1036,17 @@ textarea {
   display: grid;
   width: 34%;
   aspect-ratio: 1;
-  place-items: center;
+  place-items: end center;
   border: 2px solid currentColor;
   background: var(--cover-paper);
-  font-family: var(--font-display);
-  font-size: clamp(0.85rem, 3vw, 1.6rem);
-  font-weight: 700;
+  padding: 22% 18%;
   transform: rotate(var(--cover-turn));
+}
+
+.book-cover__label-rule {
+  display: block;
+  width: 100%;
+  border-top: 2px solid currentColor;
 }
 
 .book-cover__shape {
@@ -1476,10 +1401,6 @@ textarea {
     padding: var(--space-12);
   }
 
-  .sign-in-brand {
-    right: var(--space-8);
-  }
-
   .account-name {
     display: block;
   }
@@ -1671,8 +1592,7 @@ textarea {
     transition: none;
   }
 
-  .public-page .book-cover *,
-  .public-wordmark__edition {
+  .public-page .book-cover * {
     transform: none;
   }
 
@@ -1685,7 +1605,6 @@ textarea {
   body,
   .public-poster,
   .public-closing,
-  .public-wordmark__edition,
   .book-cover__poster-copy,
   .app-header,
   .sign-in-sheet,
@@ -1700,8 +1619,7 @@ textarea {
   }
 
   .public-closing .eyebrow,
-  .public-closing p,
-  .public-wordmark__edition {
+  .public-closing p {
     color: CanvasText;
   }
 
@@ -1828,12 +1746,69 @@ textarea {
   gap: var(--space-4);
 }
 
+.admin-field-row,
+.admin-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.admin-field-row {
+  gap: var(--space-4);
+}
+
+.admin-field > label {
+  min-block-size: 1.375rem;
+  font-family: var(--font-utility);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.admin-field__control,
+.admin-field__control > input,
+.admin-field__control > select,
+.admin-field__control > textarea {
+  min-width: 0;
+  width: 100%;
+}
+
+.admin-field__support {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  color: var(--color-brown);
+  font-family: var(--font-utility);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.admin-field__support--with-help {
+  min-height: 1.25rem;
+}
+
+.admin-field__support--empty {
+  display: none;
+}
+
+.admin-field__support .field-hint,
+.admin-field__support .form-error {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
 .optional-label,
 .field-hint {
   color: var(--color-brown);
   font-family: var(--font-utility);
   font-size: 0.72rem;
   font-weight: 400;
+}
+
+.admin-genres > .admin-field__support--reserved {
+  display: grid;
+  min-height: 1.25rem;
+  margin-top: var(--space-2);
 }
 
 .admin-genres {
@@ -2029,14 +2004,26 @@ textarea {
     padding: var(--space-6);
   }
 
-  .admin-book-form,
-  .admin-genre-form {
+  .admin-field-row--paired {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(1.375rem, auto) minmax(48px, auto) minmax(2.75rem, auto);
+    column-gap: var(--space-6);
+    row-gap: var(--space-2);
   }
 
-  .admin-field--wide,
-  .admin-genre-form .admin-form__actions {
-    grid-column: 1 / -1;
+  .admin-field-row--paired > .admin-field {
+    grid-row: 1 / 4;
+    grid-template-rows: subgrid;
+    row-gap: inherit;
+  }
+
+  .admin-field-row--paired .admin-field__support {
+    min-height: 2.75rem;
+    align-content: start;
+  }
+
+  .admin-field-row--paired .admin-field__support--empty {
+    display: grid;
   }
 
   .admin-genre-options {

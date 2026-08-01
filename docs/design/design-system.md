@@ -4,9 +4,9 @@ This document turns the Amazon 2.0 product direction into rules for maintaining
 one coherent frontend visual language. The public landing page may be
 theatrical; authenticated surfaces must stay calm, dense, and fast to scan.
 
-Amazon 2.0 is an independent library demo. Its name is a joke, but its visual
-identity must not imitate Amazon: do not use a smile/arrow mark, shopping cart,
-Amazon-like orange and black, or Amazon typography and trade dress.
+Amazon 2.0 is an independent library platform. Its name is a joke, but its
+visual identity must not imitate Amazon: do not use a smile/arrow mark, shopping
+cart, Amazon-like orange and black, or Amazon typography and trade dress.
 
 ## Design principles
 
@@ -68,6 +68,67 @@ Paper is the default canvas. Avoid large pure-white application backgrounds,
 glossy gradients, glass effects, and generic grey card grids. A subtle
 CSS-created paper grain is allowed only when it remains invisible at normal
 reading distance and does not reduce text contrast.
+
+### Brand mark: Offset Index
+
+The production mark is **Offset Index**: two overlapping catalogue cards with
+ledger rules and a circular accession stamp. It represents books being indexed
+and reshuffled without using a bookshop bag, cart, delivery arrow, smile, or
+retail-marketplace motif. It is a symbol, not an `A`, `A2`, or `2.0` monogram.
+
+Build one reusable SVG source on a `64 × 64` view box:
+
+| Element | Exact geometry | Colour |
+| --- | --- | --- |
+| Rear card | `x=20`, `y=8`, `width=36`, `height=44`, `rx=2` | Library red |
+| Front card | `x=8`, `y=14`, `width=38`, `height=42`, `rx=2`, `stroke-width=4` | Paper fill, ink stroke |
+| Ledger rules | Horizontal lines from `x=15` to `x=36` at `y=27` and `y=35`, `stroke-width=3`, square caps | Ink |
+| Accession stamp | Circle at `cx=35`, `cy=46`, `r=5` | Library red |
+
+Keep the eight-unit outer safe area; do not rotate, skew, round into an app-store
+bag, or add type inside the mark. The squared card corners and offset red rear
+card provide the character. Use geometric SVG shapes on whole or half pixels at
+export sizes so edges stay crisp.
+
+Required variants:
+
+- **Full colour:** the geometry above on paper, paper-raised, or white only.
+- **Reversed:** paper front and rules on an ink field, with the rear card and
+  stamp also paper. Do not use library red directly on ink as the only visible
+  layer.
+- **One colour:** use the front-card outline, rear-card silhouette, rules, and
+  stamp in `currentColor`; knock the front-card interior out to its known
+  background.
+- **Micro mark:** for 16–20px favicon use the two card shapes, one ledger rule
+  at `y=30`, and no stamp. At 32px and above use the full mark.
+
+Asset placement and sizing:
+
+| Surface | Treatment |
+| --- | --- |
+| Favicon | Micro mark at 16px and 20px; full mark at 32px and 48px; transparent outside its safe area |
+| App icon | Full mark centred on a paper square at 180px, 192px, and 512px; retain at least 12.5% safe area so platform masks do not crop the cards |
+| Authenticated header | Full mark at 28px beside the visible `Amazon 2.0` Fraunces wordmark; both form one home/catalogue link |
+| Public landing | Full mark at 48px from 320px and 64px from 768px beside, not behind, the display wordmark |
+| Sign-in sheet | Full mark at 40px as a quiet brand anchor; do not restore the `A2` tile |
+
+The mark never animates; the product's three allowed motions remain reserved
+for covers, saved feedback, and result transitions. Do not place the mark on
+every book cover or use it as a decorative bullet.
+
+Accessibility treatment is determined by context:
+
+- When visible `Amazon 2.0` text is adjacent, set the SVG `aria-hidden="true"`
+  and `focusable="false"`; the linked text supplies the accessible name.
+- When the mark is the only content of a functional home link, keep the SVG
+  hidden and give the link `aria-label="Amazon 2.0 home"`.
+- When the mark is purely decorative beside an already-labelled page heading,
+  hide it from assistive technology.
+- If the mark is ever presented as standalone brand content rather than a
+  control, use `role="img"` and the name `Amazon 2.0`; do not also provide a
+  duplicate `aria-label` on its parent.
+- Favicons and app icons have no alternative text. Do not bake product words
+  into their pixels.
 
 ### Typography
 
@@ -159,15 +220,16 @@ The shell has three landmarks in order: skip link, header/navigation, and
 ### Header
 
 - Paper background, one dark bottom rule, no oversized hero treatment.
-- The Amazon 2.0 wordmark uses Fraunces plus one intentionally offset red
-  library-card rectangle. It must not use a curved arrow or cart motif.
-- Desktop order: wordmark, primary navigation (`Catalogue`, `My Shelf`, and
-  librarian-only `Back Room`), flexible spacer, user menu.
+- Pair the 28px Offset Index mark with the visible Fraunces `Amazon 2.0`
+  wordmark in one labelled home/catalogue link. It must not use a curved arrow,
+  cart, retail bag, or marketplace motif.
+- Desktop order: mark and wordmark, primary navigation (`Catalogue`, `My Shelf`,
+  and librarian-only `Back Room`), flexible spacer, user menu.
 - The current destination uses both an underline/block marker and
   `aria-current="page"`; colour alone is insufficient.
-- At 320–767px, show wordmark, current destination, and one labelled `Menu`
-  button. The opened menu is a disclosure or modal sheet with all destinations
-  and `Sign out` as text, not an icon-only action.
+- At 320–767px, show the compact mark/wordmark lockup, current destination, and
+  one labelled `Menu` button. The opened menu is a disclosure or modal sheet
+  with all destinations and `Sign out` as text, not an icon-only action.
 - Header actions remain at least 44px high. Do not hide core navigation behind
   hover behavior.
 
@@ -425,6 +487,71 @@ accessible name.
   colour or an unexplained asterisk alone.
 - Do not clear user input after a server error.
 
+#### Add/edit form field layout
+
+Book and genre forms use one reusable `Field`, arranged inside explicit
+`FieldRow` groups. Its visual order is always label, control, then one support
+tray containing persistent help followed by a validation error. Do not place
+help above its control or move errors to a detached column.
+
+```text
+FieldRow
+├─ Field
+│  ├─ Label (+ optional label suffix)
+│  ├─ Input / select / textarea
+│  └─ Support tray: help, then error
+└─ Field (only when the row is paired)
+   ├─ Label
+   ├─ Input / select
+   └─ Support tray: reserved help/error space
+```
+
+Responsive and reserved-space behavior:
+
+- **320–599px:** every `FieldRow` is one column with a 16px gap. A field with
+  persistent help reserves at least `1.25rem` below the control; a field with no
+  help does not reserve an empty error line. When an error appears it expands
+  below the help. This keeps the long mobile form compact; because fields are
+  stacked, expansion cannot misalign a neighbouring control.
+- **600px and above:** paired rows use two equal `minmax(0, 1fr)` columns with a
+  24px column gap. Each field participates in shared label, control, and support
+  rows—prefer CSS `subgrid`—so paired controls have the same top edge even if a
+  label or message wraps.
+- In a paired desktop row, reserve `2.75rem` for every support tray whether help
+  and error are absent or present. That accommodates two utility-text lines plus
+  their 4px gap, preventing the next control row from jumping when a normal
+  one-line error appears. Longer copy may grow the whole `FieldRow`; never clip
+  or scroll an individual message.
+- Labels have a `1.375rem` minimum block size and align to the control edge.
+  Controls keep their 48px minimum height. Support text uses `0.75rem / 1.35`
+  utility type with 4px between help and error.
+- Full-width Title, Subtitle, Synopsis, Cover seed, Genres, and action rows do
+  not need an artificial paired neighbour. Synopsis keeps its natural textarea
+  height. The Genres fieldset reserves one error line beneath its options so the
+  action row remains stable.
+- Book field pairs are Author/ISBN, Publication year/Page count, and
+  Language/Rating. Genre Name/Slug is one pair. At 320px these pairs collapse
+  in DOM order; never use CSS visual ordering to rearrange them.
+
+Support semantics are exact:
+
+- Give persistent help and the current error unique IDs derived from the
+  control ID, for example `admin-book-isbn-hint` and
+  `admin-book-isbn-error`.
+- Build `aria-describedby` in `[helpId, errorId]` order. For ISBN with an error,
+  the value is `admin-book-isbn-hint admin-book-isbn-error`; without an error it
+  contains only the hint ID. Omit absent IDs rather than pointing to hidden or
+  empty placeholder nodes.
+- Set `aria-invalid="true"` only while invalid. Keep the visible `Error:` prefix
+  available to assistive technology; colour and border changes are secondary.
+  Do not add `role="alert"` to every field error, which would repeat the form
+  summary.
+- On failed submit, render the focusable error summary before the form, move
+  focus to its heading/region once, and link every summary item to its control.
+  The field error remains adjacent and described by the control.
+- A form-level server error sits after the summary and before the fields. It is
+  not added to every control's description, and it never clears entered data.
+
 ### Filter chips and statuses
 
 Active filter chips use paper-raised fill, an ink border, full text, and a
@@ -569,14 +696,91 @@ empty state memorable, but labels and recovery actions stay literal.
 - Use `Archive` and `Restore` for librarian records and `Remove` for a reader's
   shelf relationship. Never use `Delete`.
 - Do not call ratings reviews; user reviews are out of scope.
-- The public disclaimer is: `Amazon 2.0 is an independent library demo and is
-  not affiliated with Amazon.`
+- Do not describe the web product as a demo, prototype, take-home, seeded app,
+  or sample experience. Repository documentation may explain its technical
+  context; product-facing pages speak as a complete library platform.
+- The required visible independence statement is: `Amazon 2.0 is an independent
+  library platform and is not affiliated with Amazon.` Keep the full sentence
+  on the public landing page and sign-in sheet; do not reduce it to an icon,
+  tooltip, footer link, or legal abbreviation.
+
+### Approved presentation copy
+
+Use these exact replacements in the web app:
+
+| Surface | Approved copy |
+| --- | --- |
+| Document title | `Amazon 2.0 — Independent library` |
+| Meta description | `Discover books and keep a personal reading list with Amazon 2.0, an independent library platform.` |
+| Public hero disclaimer | `Amazon 2.0 is an independent library platform and is not affiliated with Amazon.` |
+| Public closing eyebrow | `MEMBER ACCESS` |
+| Public closing heading | `The rest of the collection is inside.` |
+| Public closing body | `Sign in with your library card to browse, filter, and build your shelf.` |
+| Public closing action | `Sign in to browse` |
+| Sign-in lede | `Sign in to browse the full active collection.` |
+| Sign-in independence note | `Amazon 2.0 is an independent library platform and is not affiliated with Amazon.` |
+
+The public hero lede and `Sign in` action already communicate the correct
+access model and may remain. Remove the reader-credential panel from the web
+app entirely: do not display, prefill, hint, or copy seeded email addresses or
+passwords on the landing or sign-in surfaces. Seed values belong only in test
+fixtures and technical README documentation where setup requires them.
+
+Remove novelty presentation that makes the platform look like a staged sample:
+
+| Remove from the web UI | Direction |
+| --- | --- |
+| `Community catalogue · Card 002` | Remove the decorative masthead ledger without replacement; the Offset Index mark and wordmark already anchor the header |
+| `Your card is waiting` | Replace with the approved `MEMBER ACCESS` eyebrow |
+| `Reader demo card` and its email/password list | Remove the entire panel, not merely its heading |
+| `Use a seeded demo account…` | Replace with the approved sign-in lede |
+
+Do not replace these with edition numbers, beta/sample badges, fake circulation
+IDs, challenge language, or another credential hint. This cleanup does not
+remove functional information: retain signed-in `reader`/`librarian` role
+labels, Active/Archived tabs, reading statuses, loading/error notices, and valid
+production empty states.
+
+There is no public account creation. Do not add or imply `Create account`,
+`Register`, `Join`, `Get started`, `Claim your card`, `Your card is waiting`, or
+`Don't have an account?`. Public calls to action use `Sign in` or `Sign in to
+browse`. Do not add registration-shaped controls that route back to sign-in.
+
+## Polish milestone implementation order
+
+1. **Create the mark source.** Build full-colour, reversed, one-colour, and
+   micro Offset Index variants from the exact 64-unit geometry; compare them at
+   16, 20, 28, 32, 48, 64, 180, 192, and 512px before integration.
+2. **Apply document assets.** Add the micro/full favicon sizes and masked app
+   icon exports, then update document title and description with the approved
+   copy. Asset changes must not imply a PWA feature that does not exist.
+3. **Replace brand lockups.** Use one shared mark component in the public
+   landing, authenticated header, and sign-in sheet. Preserve visible wordmark
+   text and apply the decorative/functional accessibility rules above.
+4. **Complete the presentation-copy pass.** Replace the public disclaimer,
+   closing invitation, sign-in lede, and independence note; remove the masthead
+   card-number ledger and credential panel. Search rendered source and document
+   metadata for product-stage wording and verify seeded emails/passwords remain
+   only in test fixtures and technical README documentation.
+5. **Build one field primitive.** Implement `Field`, `FieldRow`, and support
+   tray semantics, including help-before-error description order, mobile
+   collapse, desktop shared rows, and reserved-space behavior.
+6. **Refactor both management forms.** Apply the primitive to add/edit Book and
+   Genre without changing validation, payloads, focusable error summaries, or
+   server-error behavior.
+7. **Verify the polish.** Add focused component tests for accessible names,
+   `aria-describedby` ordering, invalid state, summary focus/links, copy, and
+   brand treatment. Inspect form alignment at 320, 599, 600, 768, and 1024px,
+   including no error, hint only, error only, hint plus error, wrapping text,
+   200% zoom, forced colours, and keyboard focus. Record manual visual checks
+   only when they are actually performed.
 
 ## Ordered frontend implementation and regression checklist
 
 1. **Keep the foundations centralized.** Maintain colour, type, spacing,
-   radius, border, shadow, width, and focus tokens; bundled Fraunces and IBM
-   Plex Mono; global paper/ink defaults; fallbacks; and the skip link.
+   radius, border, shadow, width, focus, and Offset Index mark rules; bundled
+   Fraunces and IBM Plex Mono; global paper/ink defaults; fallbacks; and the
+   skip link.
 2. **Protect the authenticated shell.** Preserve semantic navigation,
    librarian-only Back Room visibility, responsive menu, current-route marker,
    main landmark, sign-out feedback, session-expired handling, and 320px
@@ -584,9 +788,10 @@ empty state memorable, but labels and recovery actions stay literal.
 3. **Keep catalogue query state reliable.** Parse and normalize URL state with
    the shared Zod contract; preserve submit/reset, back/forward restoration,
    page-reset rules, and safe malformed-query handling.
-4. **Reuse the established controls.** Use the same buttons, labelled
-   inputs/selects, field errors, notices, drawer/dialog behavior, result status,
-   and focus treatment across reader and librarian surfaces.
+4. **Reuse the established controls.** Use the same buttons, field rows,
+   labelled inputs/selects, reserved support trays, field errors, notices,
+   drawer/dialog behavior, result status, and focus treatment across reader and
+   librarian surfaces.
 5. **Keep active taxonomy dynamic.** Catalogue filters, favourite choices, and
    book forms consume active genres from the API; no seeded genre is hard-coded.
 6. **Preserve complete catalogue states.** Retain static skeletons, busy
@@ -624,6 +829,12 @@ empty state memorable, but labels and recovery actions stay literal.
 
 ## Design risks to keep under regression
 
+- Offset Index micro-mark edges and paper knockout need checking in light and
+  dark browser chrome at actual 16px/20px favicon sizes, not only enlarged SVG
+  previews.
+- The desktop field support tray covers ordinary two-line help/error states but
+  must grow for localization, browser text scaling, and server messages; fixed
+  heights or clipping would reintroduce overlap.
 - Bundled Fraunces and IBM Plex Mono loading, fallbacks, and layout shift need
   measurement when asset or build configuration changes.
 - Generated covers need a constrained palette/pattern algorithm so a large grid

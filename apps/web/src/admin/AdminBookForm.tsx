@@ -7,6 +7,7 @@ import {
 import { useState, type FormEvent } from "react";
 
 import { AdminResponseError } from "./api";
+import { Field, FieldRow, FieldSupport } from "./Field";
 import { FormErrorSummary, type FormErrorSummaryItem } from "./FormErrorSummary";
 
 interface BookDraft {
@@ -22,6 +23,20 @@ interface BookDraft {
   coverSeed: string;
   genreIds: string[];
 }
+
+const bookFieldDetails: Record<keyof BookDraft, { controlId: string; label: string; message: string }> = {
+  title: { controlId: "admin-book-title", label: "Title", message: "Enter a title." },
+  subtitle: { controlId: "admin-book-subtitle", label: "Subtitle", message: "Enter a subtitle." },
+  author: { controlId: "admin-book-author", label: "Author", message: "Enter an author." },
+  synopsis: { controlId: "admin-book-synopsis", label: "Synopsis", message: "Enter a synopsis." },
+  isbn: { controlId: "admin-book-isbn", label: "ISBN", message: "ISBN checksum is invalid." },
+  publicationYear: { controlId: "admin-book-year", label: "Publication year", message: "Enter a four-digit year." },
+  pageCount: { controlId: "admin-book-pages", label: "Page count", message: "Enter at least one page." },
+  language: { controlId: "admin-book-language", label: "Language", message: "Enter a language." },
+  rating: { controlId: "admin-book-rating", label: "Rating", message: "Enter a rating from 0 to 5 in 0.1 increments." },
+  coverSeed: { controlId: "admin-book-cover", label: "Cover seed", message: "Enter a cover seed." },
+  genreIds: { controlId: "admin-book-genres", label: "Genres", message: "Choose at least one active genre." },
+};
 
 function draftFor(book: AdminBook | null): BookDraft {
   return book
@@ -57,19 +72,11 @@ function numericValue(value: string) {
   return value.trim() === "" ? Number.NaN : Number(value);
 }
 
-const bookFieldDetails: Record<keyof BookDraft, { controlId: string; label: string; message: string }> = {
-  title: { controlId: "admin-book-title", label: "Title", message: "Enter a title." },
-  subtitle: { controlId: "admin-book-subtitle", label: "Subtitle", message: "Enter a subtitle." },
-  author: { controlId: "admin-book-author", label: "Author", message: "Enter an author." },
-  synopsis: { controlId: "admin-book-synopsis", label: "Synopsis", message: "Enter a synopsis." },
-  isbn: { controlId: "admin-book-isbn", label: "ISBN", message: "ISBN checksum is invalid." },
-  publicationYear: { controlId: "admin-book-year", label: "Publication year", message: "Enter a four-digit year." },
-  pageCount: { controlId: "admin-book-pages", label: "Page count", message: "Enter at least one page." },
-  language: { controlId: "admin-book-language", label: "Language", message: "Enter a language." },
-  rating: { controlId: "admin-book-rating", label: "Rating", message: "Enter a rating from 0 to 5 in 0.1 increments." },
-  coverSeed: { controlId: "admin-book-cover", label: "Cover seed", message: "Enter a cover seed." },
-  genreIds: { controlId: "admin-book-genres", label: "Genres", message: "Choose at least one active genre." },
-};
+function visibleError(field: keyof BookDraft, errors: Record<string, string>) {
+  const issue = errors[field];
+  if (!issue) return undefined;
+  return field === "isbn" || field === "subtitle" ? issue : bookFieldDetails[field].message;
+}
 
 export function AdminBookForm({
   book,
@@ -140,16 +147,13 @@ export function AdminBookForm({
     }
   }
 
-  const errorFor = (field: keyof BookDraft) => errors[field];
-  const errorId = (field: keyof BookDraft) => `admin-book-${field}-error`;
-  const describedBy = (field: keyof BookDraft, hintId?: string) =>
-    [hintId, errorFor(field) ? errorId(field) : undefined].filter(Boolean).join(" ") || undefined;
-  const summaryItems = (Object.keys(errors) as (keyof BookDraft)[]).map<FormErrorSummaryItem>(
-    (field) => ({
-      ...bookFieldDetails[field],
-      message: field === "isbn" ? (errors[field] ?? bookFieldDetails[field].message) : bookFieldDetails[field].message,
-    }),
-  );
+  const errorFor = (field: keyof BookDraft) => visibleError(field, errors);
+  const summaryItems = Object.keys(errors).flatMap<FormErrorSummaryItem>((candidate) => {
+    if (!(candidate in bookFieldDetails)) return [];
+    const field = candidate as keyof BookDraft;
+    return [{ ...bookFieldDetails[field], message: errorFor(field) ?? bookFieldDetails[field].message }];
+  });
+  const genreError = errorFor("genreIds");
 
   return (
     <section aria-labelledby="book-form-title" className="admin-form-sheet">
@@ -165,80 +169,76 @@ export function AdminBookForm({
       {summaryItems.length > 0 ? <FormErrorSummary items={summaryItems} /> : null}
       {serverError ? <p className="notice admin-form-error" role="alert">{serverError}</p> : null}
       <form className="admin-form admin-book-form" noValidate onSubmit={(event) => void handleSubmit(event)}>
-        <div className="field admin-field--wide">
-          <label htmlFor="admin-book-title">Title</label>
-          <input aria-describedby={describedBy("title")} aria-invalid={Boolean(errorFor("title"))} id="admin-book-title" maxLength={240} onChange={(event) => setField("title", event.target.value)} value={draft.title} />
-          {errorFor("title") ? <span className="form-error" id={errorId("title")}><span className="visually-hidden">Error: </span>Enter a title.</span> : null}
-        </div>
-        <div className="field admin-field--wide">
-          <label htmlFor="admin-book-subtitle">Subtitle <span className="optional-label">Optional</span></label>
-          <input aria-describedby={describedBy("subtitle")} aria-invalid={Boolean(errorFor("subtitle"))} id="admin-book-subtitle" maxLength={320} onChange={(event) => setField("subtitle", event.target.value)} value={draft.subtitle} />
-          {errorFor("subtitle") ? <span className="form-error" id={errorId("subtitle")}><span className="visually-hidden">Error: </span>{errorFor("subtitle")}</span> : null}
-        </div>
-        <div className="field">
-          <label htmlFor="admin-book-author">Author</label>
-          <input aria-describedby={describedBy("author")} aria-invalid={Boolean(errorFor("author"))} id="admin-book-author" maxLength={200} onChange={(event) => setField("author", event.target.value)} value={draft.author} />
-          {errorFor("author") ? <span className="form-error" id={errorId("author")}><span className="visually-hidden">Error: </span>Enter an author.</span> : null}
-        </div>
-        <div className="field">
-          <label htmlFor="admin-book-isbn">ISBN</label>
-          <input aria-describedby={describedBy("isbn", "admin-book-isbn-hint")} aria-invalid={Boolean(errorFor("isbn"))} id="admin-book-isbn" maxLength={17} onChange={(event) => setField("isbn", event.target.value)} value={draft.isbn} />
-          <span className="field-hint" id="admin-book-isbn-hint">ISBN-10 or ISBN-13, with or without hyphens.</span>
-          {errorFor("isbn") ? <span className="form-error" id={errorId("isbn")}><span className="visually-hidden">Error: </span>{errorFor("isbn")}</span> : null}
-        </div>
-        <div className="field admin-field--wide">
-          <label htmlFor="admin-book-synopsis">Synopsis</label>
-          <textarea aria-describedby={describedBy("synopsis")} aria-invalid={Boolean(errorFor("synopsis"))} id="admin-book-synopsis" maxLength={20000} onChange={(event) => setField("synopsis", event.target.value)} rows={7} value={draft.synopsis} />
-          {errorFor("synopsis") ? <span className="form-error" id={errorId("synopsis")}><span className="visually-hidden">Error: </span>Enter a synopsis.</span> : null}
-        </div>
-        <div className="field">
-          <label htmlFor="admin-book-year">Publication year</label>
-          <input aria-describedby={describedBy("publicationYear")} aria-invalid={Boolean(errorFor("publicationYear"))} id="admin-book-year" inputMode="numeric" max={9999} min={1000} onChange={(event) => setField("publicationYear", event.target.value)} type="number" value={draft.publicationYear} />
-          {errorFor("publicationYear") ? <span className="form-error" id={errorId("publicationYear")}><span className="visually-hidden">Error: </span>Enter a four-digit year.</span> : null}
-        </div>
-        <div className="field">
-          <label htmlFor="admin-book-pages">Page count</label>
-          <input aria-describedby={describedBy("pageCount")} aria-invalid={Boolean(errorFor("pageCount"))} id="admin-book-pages" inputMode="numeric" max={100000} min={1} onChange={(event) => setField("pageCount", event.target.value)} type="number" value={draft.pageCount} />
-          {errorFor("pageCount") ? <span className="form-error" id={errorId("pageCount")}><span className="visually-hidden">Error: </span>Enter at least one page.</span> : null}
-        </div>
-        <div className="field">
-          <label htmlFor="admin-book-language">Language</label>
-          <input aria-describedby={describedBy("language")} aria-invalid={Boolean(errorFor("language"))} id="admin-book-language" maxLength={80} onChange={(event) => setField("language", event.target.value)} value={draft.language} />
-          {errorFor("language") ? <span className="form-error" id={errorId("language")}><span className="visually-hidden">Error: </span>Enter a language.</span> : null}
-        </div>
-        <div className="field">
-          <label htmlFor="admin-book-rating">Rating</label>
-          <input aria-describedby={describedBy("rating", "admin-book-rating-hint")} aria-invalid={Boolean(errorFor("rating"))} id="admin-book-rating" max={5} min={0} onChange={(event) => setField("rating", event.target.value)} step="0.1" type="number" value={draft.rating} />
-          <span className="field-hint" id="admin-book-rating-hint">0 to 5, in 0.1 increments.</span>
-          {errorFor("rating") ? <span className="form-error" id={errorId("rating")}><span className="visually-hidden">Error: </span>Enter a rating from 0 to 5 in 0.1 increments.</span> : null}
-        </div>
-        <div className="field admin-field--wide">
-          <label htmlFor="admin-book-cover">Cover seed</label>
-          <input aria-describedby={describedBy("coverSeed")} aria-invalid={Boolean(errorFor("coverSeed"))} id="admin-book-cover" maxLength={120} onChange={(event) => setField("coverSeed", event.target.value)} value={draft.coverSeed} />
-          {errorFor("coverSeed") ? <span className="form-error" id={errorId("coverSeed")}><span className="visually-hidden">Error: </span>Enter a cover seed.</span> : null}
-        </div>
-        <fieldset aria-describedby={describedBy("genreIds")} aria-invalid={Boolean(errorFor("genreIds"))} className="admin-genres admin-field--wide" id="admin-book-genres" tabIndex={-1}>
-          <legend>Genres <span aria-hidden="true">·</span> Choose one or more active genres</legend>
-          {genres.length === 0 ? (
-            <p className="notice">No active genres are available. Add or restore a genre first.</p>
-          ) : (
-            <div className="admin-genre-options">
-              {genres.map((genre) => (
-                <label key={genre.id}>
-                  <input checked={draft.genreIds.includes(genre.id)} onChange={() => toggleGenre(genre.id)} type="checkbox" />
-                  <span>{genre.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-          {errorFor("genreIds") ? <span className="form-error" id={errorId("genreIds")}><span className="visually-hidden">Error: </span>Choose at least one active genre.</span> : null}
-        </fieldset>
-        <div className="admin-form__actions admin-field--wide">
-          <button className="button button--quiet" disabled={saving} onClick={onCancel} type="button">Cancel</button>
-          <button className="button button--primary" disabled={saving || genres.length === 0} type="submit">
-            {saving ? "Saving…" : book ? "Save changes" : "Create book"}
-          </button>
-        </div>
+        <FieldRow>
+          <Field controlId="admin-book-title" error={errorFor("title")} label="Title">
+            {(accessibility) => <input {...accessibility} id="admin-book-title" maxLength={240} onChange={(event) => setField("title", event.target.value)} value={draft.title} />}
+          </Field>
+        </FieldRow>
+        <FieldRow>
+          <Field controlId="admin-book-subtitle" error={errorFor("subtitle")} label="Subtitle" labelSuffix={<span className="optional-label">Optional</span>}>
+            {(accessibility) => <input {...accessibility} id="admin-book-subtitle" maxLength={320} onChange={(event) => setField("subtitle", event.target.value)} value={draft.subtitle} />}
+          </Field>
+        </FieldRow>
+        <FieldRow paired>
+          <Field controlId="admin-book-author" error={errorFor("author")} label="Author">
+            {(accessibility) => <input {...accessibility} id="admin-book-author" maxLength={200} onChange={(event) => setField("author", event.target.value)} value={draft.author} />}
+          </Field>
+          <Field controlId="admin-book-isbn" error={errorFor("isbn")} help="ISBN-10 or ISBN-13, with or without hyphens." label="ISBN">
+            {(accessibility) => <input {...accessibility} id="admin-book-isbn" maxLength={17} onChange={(event) => setField("isbn", event.target.value)} value={draft.isbn} />}
+          </Field>
+        </FieldRow>
+        <FieldRow>
+          <Field controlId="admin-book-synopsis" error={errorFor("synopsis")} label="Synopsis">
+            {(accessibility) => <textarea {...accessibility} id="admin-book-synopsis" maxLength={20000} onChange={(event) => setField("synopsis", event.target.value)} rows={7} value={draft.synopsis} />}
+          </Field>
+        </FieldRow>
+        <FieldRow paired>
+          <Field controlId="admin-book-year" error={errorFor("publicationYear")} label="Publication year">
+            {(accessibility) => <input {...accessibility} id="admin-book-year" inputMode="numeric" max={9999} min={1000} onChange={(event) => setField("publicationYear", event.target.value)} type="number" value={draft.publicationYear} />}
+          </Field>
+          <Field controlId="admin-book-pages" error={errorFor("pageCount")} label="Page count">
+            {(accessibility) => <input {...accessibility} id="admin-book-pages" inputMode="numeric" max={100000} min={1} onChange={(event) => setField("pageCount", event.target.value)} type="number" value={draft.pageCount} />}
+          </Field>
+        </FieldRow>
+        <FieldRow paired>
+          <Field controlId="admin-book-language" error={errorFor("language")} label="Language">
+            {(accessibility) => <input {...accessibility} id="admin-book-language" maxLength={80} onChange={(event) => setField("language", event.target.value)} value={draft.language} />}
+          </Field>
+          <Field controlId="admin-book-rating" error={errorFor("rating")} help="0 to 5, in 0.1 increments." label="Rating">
+            {(accessibility) => <input {...accessibility} id="admin-book-rating" max={5} min={0} onChange={(event) => setField("rating", event.target.value)} step="0.1" type="number" value={draft.rating} />}
+          </Field>
+        </FieldRow>
+        <FieldRow>
+          <Field controlId="admin-book-cover" error={errorFor("coverSeed")} label="Cover seed">
+            {(accessibility) => <input {...accessibility} id="admin-book-cover" maxLength={120} onChange={(event) => setField("coverSeed", event.target.value)} value={draft.coverSeed} />}
+          </Field>
+        </FieldRow>
+        <FieldRow>
+          <fieldset aria-describedby={genreError ? "admin-book-genres-error" : undefined} aria-invalid={genreError ? true : undefined} className="admin-genres" id="admin-book-genres" tabIndex={-1}>
+            <legend>Genres <span aria-hidden="true">·</span> Choose one or more active genres</legend>
+            {genres.length === 0 ? (
+              <p className="notice">No active genres are available. Add or restore a genre first.</p>
+            ) : (
+              <div className="admin-genre-options">
+                {genres.map((genre) => (
+                  <label key={genre.id}>
+                    <input checked={draft.genreIds.includes(genre.id)} onChange={() => toggleGenre(genre.id)} type="checkbox" />
+                    <span>{genre.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <FieldSupport controlId="admin-book-genres" error={genreError} reserve />
+          </fieldset>
+        </FieldRow>
+        <FieldRow>
+          <div className="admin-form__actions">
+            <button className="button button--quiet" disabled={saving} onClick={onCancel} type="button">Cancel</button>
+            <button className="button button--primary" disabled={saving || genres.length === 0} type="submit">
+              {saving ? "Saving…" : book ? "Save changes" : "Create book"}
+            </button>
+          </div>
+        </FieldRow>
       </form>
     </section>
   );

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
+import { OffsetIndexMark } from "./OffsetIndexMark";
 
 export function AppShell() {
   const auth = useAuth();
@@ -46,9 +47,9 @@ export function AppShell() {
       </a>
       <header className="app-header">
         <div className="app-header__inner">
-          <Link aria-label="Amazon 2.0 catalogue" className="wordmark" to="/catalogue">
-            <span aria-hidden="true" className="wordmark__card" />
-            Amazon 2.0
+          <Link className="wordmark" to="/catalogue">
+            <OffsetIndexMark className="wordmark__mark" size={28} />
+            <span>Amazon 2.0</span>
           </Link>
           <span className="current-destination">{currentDestination}</span>
           <div className="desktop-header-actions">

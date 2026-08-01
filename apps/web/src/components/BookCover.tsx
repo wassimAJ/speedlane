@@ -37,7 +37,9 @@ export function BookCover({
       className={`book-cover${compact ? " book-cover--compact" : ""}${posterTitle ? " book-cover--poster" : ""}`}
       style={style}
     >
-      <span className="book-cover__label">A2</span>
+      <span className="book-cover__label">
+        <span className="book-cover__label-rule" />
+      </span>
       <span className="book-cover__shape book-cover__shape--one" />
       <span className="book-cover__shape book-cover__shape--two" />
       <span className="book-cover__rule" />
