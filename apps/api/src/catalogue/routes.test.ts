@@ -86,6 +86,12 @@ function testDatabase(
     }),
     findCatalogueBookById: vi.fn().mockResolvedValue(detail),
     findActiveGenres: vi.fn().mockResolvedValue([genre]),
+    findFavouriteGenres: vi.fn().mockResolvedValue([]),
+    replaceFavouriteGenres: vi.fn().mockResolvedValue([]),
+    findForYourShelves: vi.fn().mockResolvedValue([]),
+    findReadingList: vi.fn().mockResolvedValue([]),
+    upsertReadingListEntry: vi.fn().mockResolvedValue(null),
+    removeReadingListEntry: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

@@ -3,6 +3,7 @@ import express from "express";
 import { createAuthRouter, type AuthStore, type AuthUserRecord } from "./auth/routes.js";
 import { createCatalogueRouter, type CatalogueStore } from "./catalogue/routes.js";
 import { createDiscoveryRouter, type DiscoveryStore } from "./discovery/routes.js";
+import { createEngagementRouter, type EngagementStore } from "./engagement/routes.js";
 import { createHealthRouter, type HealthStore } from "./health/routes.js";
 import { createCorsMiddleware } from "./http/cors.js";
 import { errorHandler, notFoundHandler } from "./http/errors.js";
@@ -13,7 +14,8 @@ export interface AppDatabase
   extends DatabaseHealthcheck,
     AuthStore,
     CatalogueStore,
-    DiscoveryStore {}
+    DiscoveryStore,
+    EngagementStore {}
 
 export type { AuthUserRecord };
 
@@ -48,6 +50,7 @@ export function createApp(database: AppDatabase, config: AppConfig) {
     }),
   );
   app.use("/api", createCatalogueRouter(database, tokenConfig));
+  app.use("/api", createEngagementRouter(database, tokenConfig));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

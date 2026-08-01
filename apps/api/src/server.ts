@@ -8,6 +8,14 @@ import {
 } from "./catalogue/database.js";
 import { readEnvironment } from "./config/env.js";
 import { findPublicBookPreviews } from "./discovery/database.js";
+import {
+  findFavouriteGenres,
+  findForYourShelves,
+  findReadingList,
+  removeReadingListEntry,
+  replaceFavouriteGenres,
+  upsertReadingListEntry,
+} from "./engagement/database.js";
 
 const environment = readEnvironment();
 const prisma = new PrismaClient();
@@ -50,6 +58,24 @@ const database: AppDatabase = {
   },
   async findActiveGenres() {
     return findActiveGenres(prisma);
+  },
+  async findFavouriteGenres(userId) {
+    return findFavouriteGenres(prisma, userId);
+  },
+  async replaceFavouriteGenres(userId, genreIds) {
+    return replaceFavouriteGenres(prisma, userId, genreIds);
+  },
+  async findForYourShelves(userId) {
+    return findForYourShelves(prisma, userId);
+  },
+  async findReadingList(userId) {
+    return findReadingList(prisma, userId);
+  },
+  async upsertReadingListEntry(userId, bookId, status) {
+    return upsertReadingListEntry(prisma, userId, bookId, status);
+  },
+  async removeReadingListEntry(userId, bookId) {
+    return removeReadingListEntry(prisma, userId, bookId);
   },
 };
 

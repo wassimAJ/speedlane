@@ -49,6 +49,42 @@ export {
   publicBookPreviewSchema,
 } from "./discovery.js";
 export type { DiscoveryResponse, PublicBookPreview } from "./discovery.js";
+export {
+  availableReadingListBookSchema,
+  engagementArchiveVisibilitySchema,
+  engagementErrorResponseSchema,
+  ENGAGEMENT_ARCHIVE_VISIBILITY,
+  favouriteGenreIdsInputSchema,
+  favouriteGenresInvalidInputErrorResponseSchema,
+  favouriteGenresResponseSchema,
+  FOR_YOUR_SHELVES_LIMIT,
+  forYourShelvesResponseSchema,
+  MAX_FAVOURITE_GENRES,
+  readingListBookIdParamsSchema,
+  readingListBookSchema,
+  readingListEntryResponseSchema,
+  readingListEntrySchema,
+  readingListInvalidInputErrorResponseSchema,
+  readingListResponseSchema,
+  readingListStatusSchema,
+  readingListUpdateInputSchema,
+  unavailableReadingListBookSchema,
+} from "./engagement.js";
+export type {
+  AvailableReadingListBook,
+  EngagementArchiveVisibility,
+  EngagementErrorResponse,
+  FavouriteGenreIdsInput,
+  FavouriteGenresResponse,
+  ForYourShelvesResponse,
+  ReadingListBook,
+  ReadingListEntry,
+  ReadingListEntryResponse,
+  ReadingListResponse,
+  ReadingListStatus,
+  ReadingListUpdateInput,
+  UnavailableReadingListBook,
+} from "./engagement.js";
 export { apiErrorCodeSchema, apiErrorResponseSchema } from "./errors.js";
 export type { ApiErrorCode, ApiErrorResponse } from "./errors.js";
 export { healthResponseSchema } from "./health.js";
