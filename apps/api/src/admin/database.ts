@@ -217,7 +217,12 @@ export async function updateAdminBook(
         where: { id: bookId },
         data: bookInput,
       });
-      await transaction.bookGenre.deleteMany({ where: { bookId } });
+      await transaction.bookGenre.deleteMany({
+        where: {
+          bookId,
+          genre: { archivedAt: null },
+        },
+      });
       await transaction.bookGenre.createMany({
         data: genreIds.map((genreId) => ({ bookId, genreId })),
       });

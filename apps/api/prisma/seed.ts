@@ -2,6 +2,8 @@ import { scryptSync } from "node:crypto";
 
 import { Prisma, PrismaClient, UserRole } from "@prisma/client";
 
+import { reconcileSeededGenres, SEEDED_GENRES } from "./seed-genres.js";
+
 const prisma = new PrismaClient();
 
 const BOOK_COUNT = 240;
@@ -23,21 +25,6 @@ const demoUsers = [
     salt: "1e3cc494f174fd479912f7a5bb6fed90",
     role: UserRole.LIBRARIAN,
   },
-] as const;
-
-const genres = [
-  ["Fiction", "fiction"],
-  ["Mystery", "mystery"],
-  ["Science Fiction", "science-fiction"],
-  ["Fantasy", "fantasy"],
-  ["Romance", "romance"],
-  ["Historical Fiction", "historical-fiction"],
-  ["Biography", "biography"],
-  ["History", "history"],
-  ["Science", "science"],
-  ["Philosophy", "philosophy"],
-  ["Poetry", "poetry"],
-  ["Graphic Novels", "graphic-novels"],
 ] as const;
 
 const titleAdjectives = [
@@ -164,13 +151,19 @@ function isbnFor(index: number) {
 }
 
 function genreIdsFor(index: number) {
-  const genreIndexes = new Set([index % genres.length, (index * 5 + 3) % genres.length]);
+  const genreIndexes = new Set([
+    index % SEEDED_GENRES.length,
+    (index * 5 + 3) % SEEDED_GENRES.length,
+  ]);
 
   if (index % 4 === 0) {
-    genreIndexes.add((index * 7 + 5) % genres.length);
+    genreIndexes.add((index * 7 + 5) % SEEDED_GENRES.length);
   }
 
-  return [...genreIndexes].map((genreIndex) => stableUuid(1, genreIndex + 1));
+  return [...genreIndexes].map(
+    (genreIndex) =>
+      valueAt(SEEDED_GENRES, genreIndex, "genre").id,
+  );
 }
 
 function bookFor(index: number) {
@@ -229,16 +222,7 @@ async function main() {
     });
   }
 
-  for (const [index, [name, slug]] of genres.entries()) {
-    const id = stableUuid(1, index + 1);
-    const createdAt = new Date(Date.UTC(2023, 0, index + 1, 12));
-
-    await prisma.genre.upsert({
-      where: { id },
-      create: { id, name, slug, archivedAt: null, createdAt, updatedAt: createdAt },
-      update: { name, slug, archivedAt: null, createdAt, updatedAt: createdAt },
-    });
-  }
+  await reconcileSeededGenres(prisma);
 
   for (let index = 0; index < BOOK_COUNT; index += 1) {
     const book = bookFor(index);

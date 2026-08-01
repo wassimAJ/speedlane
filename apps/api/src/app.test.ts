@@ -97,6 +97,53 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("CORS response variance", () => {
+  it("varies responses without an Origin header", async () => {
+    const response = await request(createApp(testDatabase(), config))
+      .get("/api/health")
+      .expect(200);
+
+    expect(response.headers.vary).toBe("Origin");
+    expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("varies allowed-origin responses and preserves credentialed CORS headers", async () => {
+    const response = await request(createApp(testDatabase(), config))
+      .get("/api/health")
+      .set("Origin", config.corsOrigin)
+      .expect(200);
+
+    expect(response.headers.vary).toBe("Origin");
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      config.corsOrigin,
+    );
+    expect(response.headers["access-control-allow-credentials"]).toBe("true");
+    expect(response.headers["access-control-allow-methods"]).toBe(
+      "GET,POST,PUT,DELETE,OPTIONS",
+    );
+    expect(response.headers["access-control-allow-headers"]).toBe(
+      "Content-Type",
+    );
+  });
+
+  it("varies rejected-origin responses and prevents caching", async () => {
+    const response = await request(createApp(testDatabase(), config))
+      .get("/api/health")
+      .set("Origin", "https://attacker.example")
+      .expect(403);
+
+    expect(apiErrorResponseSchema.parse(response.body)).toEqual({
+      error: {
+        code: "FORBIDDEN",
+        message: "Origin is not allowed.",
+      },
+    });
+    expect(response.headers.vary).toBe("Origin");
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+});
+
 describe("GET /api/health", () => {
   it("returns the existing shared, database-backed health response", async () => {
     const database = testDatabase();
@@ -211,6 +258,26 @@ describe("authentication", () => {
       error: {
         code: "INVALID_REQUEST",
         message: "Login details are invalid.",
+      },
+    });
+    expect(database.findUserByEmail).not.toHaveBeenCalled();
+  });
+
+  it("returns a safe structured 413 for an oversized non-admin JSON body", async () => {
+    const database = testDatabase();
+    const response = await request(createApp(database, config))
+      .post("/api/auth/login")
+      .send({
+        email: "reader@amazon2.local",
+        password: "ReaderDemo123!",
+        padding: "x".repeat(1_048_576),
+      })
+      .expect(413);
+
+    expect(apiErrorResponseSchema.parse(response.body)).toEqual({
+      error: {
+        code: "INVALID_REQUEST",
+        message: "Request body is too large.",
       },
     });
     expect(database.findUserByEmail).not.toHaveBeenCalled();

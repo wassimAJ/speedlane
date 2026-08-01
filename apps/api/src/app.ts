@@ -13,6 +13,7 @@ import { createEngagementRouter, type EngagementStore } from "./engagement/route
 import { createHealthRouter, type HealthStore } from "./health/routes.js";
 import { createCorsMiddleware } from "./http/cors.js";
 import { errorHandler, notFoundHandler } from "./http/errors.js";
+import { createOpenApiRouter } from "./openapi/routes.js";
 
 export interface DatabaseHealthcheck extends HealthStore {}
 
@@ -42,6 +43,7 @@ export function createApp(database: AppDatabase, config: AppConfig) {
 
   app.disable("x-powered-by");
   app.use(createCorsMiddleware(config.corsOrigin));
+  app.use("/api", createOpenApiRouter());
   app.use(express.json({ limit: "1mb" }));
 
   app.use("/api", createHealthRouter(database));

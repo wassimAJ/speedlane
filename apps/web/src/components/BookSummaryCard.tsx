@@ -30,10 +30,10 @@ export function BookSummaryCard({
           <span>{book.publicationYear}</span>
           <span aria-label={`Rated ${book.rating} out of 5`}>{book.rating.toFixed(1)} ★</span>
         </p>
-        <div
-          aria-label={`Genres: ${book.genres.map((genre) => genre.name).join(", ")}`}
-          className="genre-list"
-        >
+        <p className="visually-hidden">
+          Genres: {book.genres.map((genre) => genre.name).join(", ")}
+        </p>
+        <div aria-hidden="true" className="genre-list">
           {visibleGenres.map((genre) => (
             <span className="genre-chip" key={genre.id}>{genre.name}</span>
           ))}

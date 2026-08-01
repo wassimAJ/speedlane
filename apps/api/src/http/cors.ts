@@ -7,6 +7,7 @@ const ALLOWED_HEADERS = "Content-Type";
 
 export function createCorsMiddleware(allowedOrigin: string): RequestHandler {
   return (request, response, next) => {
+    response.vary("Origin");
     const requestOrigin = request.get("origin");
 
     if (requestOrigin === undefined) {
@@ -15,11 +16,11 @@ export function createCorsMiddleware(allowedOrigin: string): RequestHandler {
     }
 
     if (requestOrigin !== allowedOrigin) {
+      response.set("Cache-Control", "no-store");
       next(new HttpError(403, "FORBIDDEN", "Origin is not allowed."));
       return;
     }
 
-    response.vary("Origin");
     response.set({
       "Access-Control-Allow-Origin": allowedOrigin,
       "Access-Control-Allow-Credentials": "true",

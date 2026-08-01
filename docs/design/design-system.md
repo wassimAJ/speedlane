@@ -1,9 +1,8 @@
 # Library Card Chaos design system
 
-This document turns the Amazon 2.0 product direction into rules a frontend
-builder can implement without inventing a second visual language. The public
-landing page may be theatrical; authenticated surfaces must stay calm, dense,
-and fast to scan.
+This document turns the Amazon 2.0 product direction into rules for maintaining
+one coherent frontend visual language. The public landing page may be
+theatrical; authenticated surfaces must stay calm, dense, and fast to scan.
 
 Amazon 2.0 is an independent library demo. Its name is a joke, but its visual
 identity must not imitate Amazon: do not use a smile/arrow mark, shopping cart,
@@ -72,12 +71,12 @@ reading distance and does not reduce text contrast.
 
 ### Typography
 
-Use locally hosted WOFF2 files when font assets are introduced. Set
-`font-display: swap` and keep the fallbacks below so the layout remains usable
-before fonts load.
+The web bundle supplies Fraunces Variable and IBM Plex Mono through Fontsource.
+Keep them bundled with the application, retain swap behavior, and preserve the
+fallbacks below so the layout remains usable before fonts load.
 
 ```css
---font-display: "Fraunces", Georgia, "Times New Roman", serif;
+--font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
 --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 --font-utility: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 ```
@@ -192,7 +191,7 @@ cards.
 1. Application header.
 2. Page header.
 3. Optional `For your shelves` section, only when the signed-in reader has
-   active favourite genres and that feature's API is available.
+   active favourite genres.
 4. Search row.
 5. Catalogue workspace: filter rail/drawer followed by result region.
 6. Pagination and page-size control.
@@ -282,16 +281,20 @@ words twice.
 ### `For your shelves`
 
 This section is absent—not empty—when the reader has no active favourite
-genres, or until the preferences/personalisation contract is implemented.
+genres. The catalogue first checks the saved preference list and requests
+personalised books only when at least one favourite is active.
 
 - Heading: `For your shelves`.
 - Support: `Fresh picks from your favourite corners of the library.`
 - Show at most six active books not already on the reader's shelf.
 - Preserve server order: preference order, then newest within each genre.
 - Use the same book-summary component and cover proportions as ordinary
-  results. A horizontal scroll region is acceptable below 768px only if it has
-  a visible cue, labelled region, keyboard access, and does not trap vertical
-  scrolling.
+  results. The as-built grid is one column at the base width, two from 480px,
+  three from 768px, and six compact summaries from 1024px.
+- Keep loading, request failure with `Try again`, and `No fresh picks are
+  available right now.` inside the labelled section. A failure to check whether
+  favourites exist uses a compact catalogue notice rather than an empty
+  recommendation section.
 - Personalised results never alter the ordinary catalogue's order or count.
 
 ### Pagination
@@ -327,8 +330,16 @@ must not reveal archive status.
 - Use a definition list for publication facts. Do not style it as an editable
   form.
 - ISBN stays text, not a link unless a real destination is implemented.
-- Genre links may return to catalogue with that active genre filter if the
-  shared contract and router support the transition.
+- Genre links return to the catalogue with the selected genre filter.
+- While shelf membership is loading, show `Checking My Shelf…`. A book that is
+  not on the shelf has one `Add to My Shelf` action; adding creates a
+  `Want to read` entry.
+- A book already on the shelf has a labelled reading-status select with
+  `Want to read`, `Reading`, and `Finished`, plus `Remove from My Shelf`.
+  Disable the controls while a mutation is in flight and retain their layout.
+- Successful add, move, and remove actions write adjacent polite status text.
+  Shelf-control load or mutation failures stay local to the control group and
+  offer `Try again` when a retry is possible.
 
 Unavailable detail copy:
 
@@ -336,9 +347,52 @@ Unavailable detail copy:
 - Body: `It may have moved out of the open stacks.`
 - Action: `Back to catalogue`
 
-Do not say `archived` here. Existing shelf history will use the explicit
-`Archived / unavailable` state only in the future My Shelf surface, as required
-by the product specification.
+Do not say `archived` on the reader detail not-found view. My Shelf deliberately
+uses the explicit `Archived / unavailable` label for preserved reading history.
+
+## Reader preferences and My Shelf
+
+### Favourite genres
+
+Favourite genres is an authenticated destination in primary navigation. It
+uses active genres from the API and displays selection and preference order as
+two related sections, not a card dashboard.
+
+- Heading: `Favourite genres`; support: `Choose up to five active genres. Their
+  order shapes your personalised picks.`
+- The genre fieldset uses large labelled checkboxes and reports `n of 5
+  selected`. At five selections, keep selected items enabled for removal,
+  disable the remaining choices, and show `Maximum selected. Remove one genre
+  to choose another.` as status text.
+- The ordered list numbers each saved choice. `Move up` and `Move down` are
+  visible text buttons with genre-specific accessible names; disable the
+  impossible first/last move.
+- At base widths the two sections stack and ordering actions occupy their own
+  row. At 768px, selection and order form two proportional columns; active
+  genre choices may use two columns without changing DOM order.
+- `Save favourites` is disabled while unchanged or saving. A successful save
+  announces `Favourite genres saved.` politely. Selection and request errors
+  are adjacent, textual, and do not discard the working order.
+- When there are no active genres, state that explicitly instead of rendering
+  stale or hard-coded choices. The load failure view offers `Try again`.
+
+### My Shelf
+
+My Shelf groups visible entries under `Want to read`, `Reading`, and `Finished`.
+Omit an empty group, but keep the total book count in the page header.
+
+- Each row uses a compact deterministic cover, title, author, and controls. The
+  base layout uses an `88px` cover and one flexible content track; from 768px,
+  use a `104px` cover and separate metadata/action columns.
+- Available titles link to detail. Their labelled status select updates the
+  reading state and `Remove` soft-removes the entry from the visible shelf.
+- An archived book remains in its saved group, loses its detail link, gains a
+  dark-red left rule plus the text-and-symbol label `Archived / unavailable`,
+  and has its reading-status select disabled. `Remove` remains available.
+- Place successful mutation feedback in a polite live region above the groups.
+  Name errors with the affected title and keep the current shelf visible.
+- Empty-state copy is `Your shelf is ready for a first book.` with the action
+  `Browse the catalogue`.
 
 ## Reusable component rules
 
@@ -390,13 +444,38 @@ or instructions inside chips.
   a non-blocking status region; errors use an alert only when immediate
   interruption is necessary.
 
-### Tables and librarian records
+### Librarian Back Room
 
-For the future Back Room, use a real table at widths where columns fit. Below
-that threshold, reflow each row into a labelled record; do not hide status or
-actions. If a data table must scroll horizontally, keep the scroll region
-keyboard-accessible and show a visible overflow cue. Archive and restore
-actions are always text-labelled.
+Back Room appears in primary navigation only for librarians. Server
+authorization remains authoritative; a reader who reaches its route sees the
+in-shell `That room is for librarians.` state and no management request is made.
+
+- `Books` and `Genres` are separate labelled navigation destinations. Each has
+  `Active` and `Archived` tabs with `aria-current="page"`; keep these controls
+  visible rather than combining record type and status in one select.
+- The active tab pairs its status navigation with `Add book` or `Add genre`.
+  Archived tabs replace create/edit/archive controls with text-labelled
+  `Restore` actions.
+- Records use real tables inside named, focusable horizontal-scroll regions.
+  Book columns are Book, ISBN, Year, Genres, and Actions; genre columns are
+  Name, Slug, and Actions. Keep actions in the table and reachable through
+  scrolling; never remove them at narrow widths.
+- Create/edit forms are paper-raised sheets with a dark rule and restrained red
+  offset shadow. Fields form one column at the base width and two columns from
+  600px where related values fit. Synopsis, title/subtitle, genre choices, and
+  action rows span the full form width.
+- The book form exposes title, optional subtitle, author, synopsis, ISBN,
+  publication year, page count, language, rating, cover seed, and one or more
+  active genres. The genre form exposes name and slug. Keep hints and adjacent
+  errors programmatically associated; the focusable error summary links back
+  to invalid controls.
+- `Archive` opens a labelled modal naming the record and stating that the
+  action is reversible. Focus starts on `Cancel`, Tab stays within the dialog,
+  Escape cancels when idle, and closing returns focus to the archive trigger.
+- Successful create, update, archive, and restore messages use a polite status
+  notice. Archive failures—including a genre that is the only active genre for
+  a book—remain visible as server-authored explanatory errors. Never relabel a
+  soft archive as delete.
 
 ## Interaction and motion
 
@@ -435,6 +514,12 @@ search/filter controls.
 | Empty active catalogue | Page-level empty state | `The open stacks are empty.` / `Check back after the librarian adds a book.` |
 | Detail loading | Static cover and text skeleton in final layout | Page title status: `Loading book…` |
 | Detail unavailable/404 | Reader-safe not-found state | `This book is not available.` / `It may have moved out of the open stacks.` / `Back to catalogue` |
+| Favourite limit reached | Leave selected choices enabled and disable only unselected choices | `Maximum selected. Remove one genre to choose another.` |
+| Favourite save failed | Preserve selection/order and place an alert by the save action | `We couldn’t save your favourite genres. Try again.` |
+| Personalised picks unavailable | Keep ordinary catalogue results independent and usable | `We couldn’t load your personalised picks.` / `Try again` |
+| Empty My Shelf | Page-level invitation with catalogue link | `Your shelf is ready for a first book.` / `Browse the catalogue` |
+| Archived shelf entry | Keep history visible; disable status and retain Remove | `Archived / unavailable` |
+| Back Room archive confirmation | Labelled focus-trapped modal naming the record | `This action is reversible.` / `Cancel` / `Archive` |
 | Session expired/401 | Clear authenticated view and move to sign-in route | `Your library card expired. Sign in again to continue.` / `Sign in` |
 | Forbidden/403 | Preserve shell, replace protected content | `That room is for librarians.` / `Back to catalogue` |
 | Unexpected error | Calm page-level recovery | `Something slipped between the shelves.` / `Try again` |
@@ -487,51 +572,60 @@ empty state memorable, but labels and recovery actions stay literal.
 - The public disclaimer is: `Amazon 2.0 is an independent library demo and is
   not affiliated with Amazon.`
 
-## Ordered frontend implementation checklist
+## Ordered frontend implementation and regression checklist
 
-1. **Install the foundations.** Add the colour, type, spacing, radius, border,
-   shadow, width, and focus tokens. Load Fraunces and IBM Plex Mono with swap
-   behavior and verify fallbacks. Add global paper/ink defaults and the skip
-   link.
-2. **Build the authenticated shell.** Implement semantic header/navigation,
-   responsive menu, current-route treatment, main landmark, session-expired
-   handling, and 320px/keyboard behavior before feature pages.
-3. **Make query state reliable.** Use the shared Zod catalogue query contract
-   to parse/normalize URL state. Implement submit/reset, back/forward restore,
-   page-reset rules, and safe handling for malformed query strings.
-4. **Build shared controls.** Implement buttons, labelled inputs/selects,
-   field errors, notices, filter chips, drawer/dialog primitives, result status,
-   and focus behavior. Test each without custom fonts or animation.
-5. **Connect active genres and filters.** Fetch genres from the API, implement
-   search and year validation, stage drawer values, apply/reset behavior, sort,
-   and active-filter count. Do not hard-code seed genres.
-6. **Build the catalogue result states.** Implement static skeletons, busy
+1. **Keep the foundations centralized.** Maintain colour, type, spacing,
+   radius, border, shadow, width, and focus tokens; bundled Fraunces and IBM
+   Plex Mono; global paper/ink defaults; fallbacks; and the skip link.
+2. **Protect the authenticated shell.** Preserve semantic navigation,
+   librarian-only Back Room visibility, responsive menu, current-route marker,
+   main landmark, sign-out feedback, session-expired handling, and 320px
+   keyboard behavior.
+3. **Keep catalogue query state reliable.** Parse and normalize URL state with
+   the shared Zod contract; preserve submit/reset, back/forward restoration,
+   page-reset rules, and safe malformed-query handling.
+4. **Reuse the established controls.** Use the same buttons, labelled
+   inputs/selects, field errors, notices, drawer/dialog behavior, result status,
+   and focus treatment across reader and librarian surfaces.
+5. **Keep active taxonomy dynamic.** Catalogue filters, favourite choices, and
+   book forms consume active genres from the API; no seeded genre is hard-coded.
+6. **Preserve complete catalogue states.** Retain static skeletons, busy
    transition, loaded summary, no-match, empty-catalogue, retryable error, 401,
-   and unexpected-error treatments before polishing cards.
-7. **Build the reusable book summary.** Render deterministic 2:3 covers and the
-   approved title/author/year/rating/genre hierarchy. Verify no internal fields
-   appear and the component works as a horizontal 320px row and vertical card.
-8. **Assemble responsive results.** Add the one/two/three/four-column rules,
-   persistent desktop rail, accessible mobile filter drawer, stable layout,
-   and result-update announcements.
-9. **Implement pagination.** Add desktop and 320px variants, page size capped at
-   48, disabled boundaries, URL updates, result-focus behavior, and back/forward
-   tests.
-10. **Implement book detail.** Use the shared detail response, preserve the
-    return query, build the responsive cover/content layout and definition list,
-    and give unknown/archived IDs the same reader-safe 404 presentation.
-11. **Add personalisation only after its contract exists.** Reuse the book
-    summary for `For your shelves`; preserve server order and never merge it
-    into ordinary results. Do not fake the section from catalogue data.
-12. **Verify the experience.** Cover 320, 480, 768, 1024, and 1280px; keyboard
-    only; screen-reader names/status; 200% and 400% zoom; forced colours; reduced
-    motion; slow/failing requests; empty results; long titles/authors; 48 books;
-    session expiry; and reader-safe archived detail behavior.
+   and unexpected-error treatments.
+7. **Maintain one book-summary language.** Use deterministic 2:3 covers and the
+   title/author/year/rating/genre hierarchy in ordinary and personalised
+   results; never expose `coverSeed` or internal fields as copy.
+8. **Regression-test responsive catalogue behavior.** Cover the base horizontal
+   result row, wider vertical grids, persistent desktop rail, mobile filter
+   drawer, stable updates, pagination capped at 48, focus after page changes,
+   and browser history.
+9. **Protect detail and shelf integration.** Preserve the catalogue return
+   query, reader-safe archived/unknown 404, add/update/remove shelf controls,
+   mutation feedback, and publication-facts definition list.
+10. **Protect favourite genre ordering.** Keep the five-genre cap, active-only
+    choices, explicit move controls, unchanged-save state, ordered payload, and
+    error recovery without losing the working selection.
+11. **Keep personalisation separate.** Omit `For your shelves` with no
+    favourites; otherwise preserve its at-most-six server order and keep its
+    loading/error/empty states independent from ordinary catalogue results.
+12. **Protect My Shelf history.** Group visible entries by reading state,
+    update available entries, soft-remove on request, and keep archived entries
+    labelled and removable while their status controls remain disabled.
+13. **Protect librarian management.** Keep role gating, Books/Genres and
+    Active/Archived navigation, complete forms and validation summaries,
+    focusable scrolling tables, reversible archive dialogs, restoration, and
+    blocking genre-archive explanations.
+14. **Run accessibility and responsive regression checks.** Cover 320, 480,
+    768, 1024, and 1280px; keyboard-only operation; screen-reader names/status;
+    200% and 400% zoom; forced colours; reduced motion; slow/failing requests;
+    long content; session expiry; reader-safe archive behavior; and dialog
+    focus return. Record manual checks when performed; this document alone is
+    not certification that they passed.
 
-## Design risks to validate in implementation
+## Design risks to keep under regression
 
-- Fraunces and IBM Plex Mono font files are not yet guaranteed to be bundled;
-  loading and layout shift need measurement when assets are added.
+- Bundled Fraunces and IBM Plex Mono loading, fallbacks, and layout shift need
+  measurement when asset or build configuration changes.
 - Generated covers need a constrained palette/pattern algorithm so a large grid
   feels varied without making titles unreadable.
 - Rating precision and generated-cover extremes need checking against the
@@ -539,6 +633,6 @@ empty state memorable, but labels and recovery actions stay literal.
   inputs such as `coverSeed` as visible copy.
 - Long translated titles, author names, and genre sets should be tested with
   real seeded extremes before fixing card heights.
-- Personalisation, shelf actions, and Back Room components stay deferred until
-  their respective API contracts exist; this system defines their visual rules
-  but does not authorize frontend implementation yet.
+- Dense Back Room tables and long error explanations need narrow-width,
+  keyboard-scroll, and focus-return regression checks whenever columns or
+  actions change.

@@ -31,6 +31,19 @@ function isMalformedJsonError(error: unknown): error is SyntaxError & { status: 
   );
 }
 
+function isPayloadTooLargeError(error: unknown): error is Error & {
+  status: number;
+  type: string;
+} {
+  return (
+    error instanceof Error &&
+    "status" in error &&
+    error.status === 413 &&
+    "type" in error &&
+    error.type === "entity.too.large"
+  );
+}
+
 export const errorHandler: ErrorRequestHandler = (
   error: unknown,
   _request: Request,
@@ -49,6 +62,10 @@ export const errorHandler: ErrorRequestHandler = (
     statusCode = 400;
     code = "INVALID_REQUEST";
     message = "Request body must be valid JSON.";
+  } else if (isPayloadTooLargeError(error)) {
+    statusCode = 413;
+    code = "INVALID_REQUEST";
+    message = "Request body is too large.";
   } else {
     console.error("Unhandled API error", error);
   }

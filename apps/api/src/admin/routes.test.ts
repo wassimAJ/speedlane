@@ -32,6 +32,18 @@ const genre: AdminGenre = {
   slug: "science-fiction",
   archivedAt: null,
 };
+const replacementGenre: AdminGenre = {
+  id: "20000000-0000-4000-8000-000000000002",
+  name: "Fantasy",
+  slug: "fantasy",
+  archivedAt: null,
+};
+const archivedHistoricalGenre: AdminGenre = {
+  id: "20000000-0000-4000-8000-000000000003",
+  name: "Classics",
+  slug: "classics",
+  archivedAt: "2025-01-01T00:00:00.000Z",
+};
 
 const bookInput: AdminBookInput = {
   title: "The Quiet Orbit",
@@ -262,6 +274,39 @@ describe("admin authorization and success contracts", () => {
     });
     expect(adminBookResponseSchema.parse(createdBook.body)).toEqual({ book });
     expect(adminGenreResponseSchema.parse(createdGenre.body)).toEqual({ genre });
+  });
+
+  it("accepts active-only book selections and returns preserved archived associations", async () => {
+    const input: AdminBookInput = {
+      ...bookInput,
+      title: "The Renamed Orbit",
+      genreIds: [replacementGenre.id],
+    };
+    const updatedBook: AdminBook = {
+      ...book,
+      title: input.title,
+      genres: [archivedHistoricalGenre, replacementGenre],
+    };
+    const updateAdminBook = vi
+      .fn()
+      .mockResolvedValue({ kind: "ok", value: updatedBook });
+    const response = await request(
+      createApp(
+        testDatabase("LIBRARIAN", {
+          updateAdminBook,
+        }),
+        config,
+      ),
+    )
+      .put(`/api/admin/books/${book.id}`)
+      .set("Cookie", sessionCookie("LIBRARIAN"))
+      .send(input)
+      .expect(200);
+
+    expect(updateAdminBook).toHaveBeenCalledWith(book.id, input);
+    expect(adminBookResponseSchema.parse(response.body)).toEqual({
+      book: updatedBook,
+    });
   });
 });
 

@@ -35,6 +35,12 @@ const archivedGenre = {
   ...genre,
   archivedAt: new Date("2026-01-01T00:00:00.000Z"),
 };
+const archivedHistoricalGenre = {
+  id: "20000000-0000-4000-8000-000000000003",
+  name: "Classics",
+  slug: "classics",
+  archivedAt: new Date("2025-01-01T00:00:00.000Z"),
+};
 const bookInput: AdminBookInput = {
   title: "The Quiet Orbit",
   subtitle: "Notes from the outer shelf",
@@ -50,14 +56,14 @@ const bookInput: AdminBookInput = {
 };
 const bookId = "10000000-0000-4000-8000-000000000001";
 
-function bookRow(archived = false) {
+function bookRow(archived = false, genres = [{ genre }]) {
   const { genreIds: _genreIds, ...fields } = bookInput;
 
   return {
     id: bookId,
     ...fields,
     archivedAt: archived ? new Date("2026-01-01T00:00:00.000Z") : null,
-    genres: [{ genre }],
+    genres,
   };
 }
 
@@ -198,10 +204,54 @@ describe("admin book persistence", () => {
     expect(database.bookCreate).not.toHaveBeenCalled();
   });
 
-  it("atomically edits fields and reconciles associations exactly", async () => {
+  it("preserves archived genre associations during an unrelated field edit", async () => {
+    const database = prismaMock();
+    const input = { ...bookInput, title: "The Renamed Orbit" };
+    database.bookFindUnique
+      .mockResolvedValueOnce({ id: bookId })
+      .mockResolvedValueOnce(
+        bookRow(false, [
+          { genre: archivedHistoricalGenre },
+          { genre },
+        ]),
+      );
+
+    const result = await updateAdminBook(database.prisma, bookId, input);
+
+    expect(database.bookGenreDeleteMany).toHaveBeenCalledWith({
+      where: {
+        bookId,
+        genre: { archivedAt: null },
+      },
+    });
+    expect(database.bookGenreCreateMany).toHaveBeenCalledWith({
+      data: [{ bookId, genreId: genre.id }],
+    });
+    expect(result).toMatchObject({
+      kind: "ok",
+      value: {
+        genres: expect.arrayContaining([
+          expect.objectContaining({
+            id: archivedHistoricalGenre.id,
+            archivedAt: archivedHistoricalGenre.archivedAt.toISOString(),
+          }),
+          expect.objectContaining({ id: genre.id, archivedAt: null }),
+        ]),
+      },
+    });
+  });
+
+  it("atomically replaces active associations without touching archived joins", async () => {
     const database = prismaMock();
     const input = { ...bookInput, genreIds: [secondGenre.id] };
-    database.bookFindUnique.mockResolvedValue(bookRow());
+    database.bookFindUnique
+      .mockResolvedValueOnce({ id: bookId })
+      .mockResolvedValueOnce(
+        bookRow(false, [
+          { genre: archivedHistoricalGenre },
+          { genre: secondGenre },
+        ]),
+      );
 
     const result = await updateAdminBook(database.prisma, bookId, input);
 
@@ -214,12 +264,23 @@ describe("admin book persistence", () => {
       data: expect.not.objectContaining({ genreIds: expect.anything() }),
     });
     expect(database.bookGenreDeleteMany).toHaveBeenCalledWith({
-      where: { bookId },
+      where: {
+        bookId,
+        genre: { archivedAt: null },
+      },
     });
     expect(database.bookGenreCreateMany).toHaveBeenCalledWith({
       data: [{ bookId, genreId: secondGenre.id }],
     });
-    expect(result.kind).toBe("ok");
+    expect(result).toMatchObject({
+      kind: "ok",
+      value: {
+        genres: expect.arrayContaining([
+          expect.objectContaining({ id: archivedHistoricalGenre.id }),
+          expect.objectContaining({ id: secondGenre.id, archivedAt: null }),
+        ]),
+      },
+    });
   });
 
   it("archives without removing associations and treats repeated archive as success", async () => {
