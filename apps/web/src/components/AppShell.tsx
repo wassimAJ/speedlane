@@ -16,6 +16,8 @@ export function AppShell() {
 
   const currentDestination = location.pathname.startsWith("/books/")
     ? "Book detail"
+    : location.pathname.startsWith("/back-room")
+      ? "The Back Room"
     : location.pathname === "/shelf"
       ? "My Shelf"
       : location.pathname === "/preferences"
@@ -63,6 +65,11 @@ export function AppShell() {
               <NavLink className={navClass} to="/preferences">
                 Favourite genres
               </NavLink>
+              {auth.state.user.role === "LIBRARIAN" ? (
+                <NavLink className={navClass} to="/back-room">
+                  Back Room
+                </NavLink>
+              ) : null}
             </nav>
             <div className="account-actions">
               <span className="account-name">
@@ -93,6 +100,11 @@ export function AppShell() {
                 <NavLink className={navClass} to="/preferences">
                   Favourite genres
                 </NavLink>
+                {auth.state.user.role === "LIBRARIAN" ? (
+                  <NavLink className={navClass} to="/back-room">
+                    Back Room
+                  </NavLink>
+                ) : null}
               </nav>
               <button
                 className="button button--quiet"
