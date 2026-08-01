@@ -4,7 +4,7 @@ import {
   genresResponseSchema,
   type CatalogueBooksQuery,
   type CatalogueBooksResponse,
-  type CatalogueBookSummary,
+  type ForYourShelvesResponse,
   type GenresResponse,
 } from "@amazon-2/contracts";
 import {
@@ -14,7 +14,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { isUnauthenticated, requestJson } from "../api";
 import { useAuth } from "../auth/AuthProvider";
@@ -23,8 +23,9 @@ import {
   isDefaultCatalogueQuery,
   parseCatalogueSearch,
 } from "../catalogue/query";
-import { BookCover } from "../components/BookCover";
+import { BookSummaryCard } from "../components/BookSummaryCard";
 import { FilterForm, type FilterDraft } from "../components/FilterForm";
+import { getFavouriteGenres, getForYourShelves } from "../engagement/api";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 
 type BooksState =
@@ -37,6 +38,13 @@ type GenresState =
   | { kind: "loading" }
   | { kind: "ready"; data: GenresResponse }
   | { kind: "error" };
+
+type PersonalisedState =
+  | { kind: "checking" }
+  | { kind: "absent" }
+  | { kind: "loading" }
+  | { kind: "ready"; data: ForYourShelvesResponse }
+  | { kind: "error"; hasFavourites: boolean };
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48];
 
@@ -79,8 +87,10 @@ export function CataloguePage() {
   const [queryNotice, setQueryNotice] = useState(parsedSearch.wasInvalid);
   const [booksAttempt, setBooksAttempt] = useState(0);
   const [genresAttempt, setGenresAttempt] = useState(0);
+  const [personalisedAttempt, setPersonalisedAttempt] = useState(0);
   const [booksState, setBooksState] = useState<BooksState>({ kind: "loading" });
   const [genresState, setGenresState] = useState<GenresState>({ kind: "loading" });
+  const [personalisedState, setPersonalisedState] = useState<PersonalisedState>({ kind: "checking" });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const filtersTriggerRef = useRef<HTMLButtonElement>(null);
@@ -150,6 +160,42 @@ export function CataloguePage() {
 
     return () => controller.abort();
   }, [auth.expireSession, genresAttempt]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let hasFavourites = false;
+    setPersonalisedState({ kind: "checking" });
+
+    getFavouriteGenres(controller.signal)
+      .then((favourites) => {
+        if (favourites.genres.length === 0) {
+          setPersonalisedState({ kind: "absent" });
+          return null;
+        }
+
+        hasFavourites = true;
+        setPersonalisedState({ kind: "loading" });
+        return getForYourShelves(controller.signal);
+      })
+      .then((recommendations) => {
+        if (recommendations !== null) {
+          setPersonalisedState({ kind: "ready", data: recommendations });
+        }
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        if (isUnauthenticated(error)) {
+          auth.expireSession();
+          return;
+        }
+        setPersonalisedState({
+          kind: "error",
+          hasFavourites,
+        });
+      });
+
+    return () => controller.abort();
+  }, [auth.expireSession, personalisedAttempt]);
 
   useEffect(() => {
     if (!filtersOpen || isDesktop) return;
@@ -277,6 +323,12 @@ export function CataloguePage() {
           Some catalogue options were reset.
         </p>
       ) : null}
+
+      <ForYourShelves
+        onRetry={() => setPersonalisedAttempt((value) => value + 1)}
+        returnSearch={location.search}
+        state={personalisedState}
+      />
 
       <form className="search-form" onSubmit={submitSearch} role="search">
         <div className="field search-form__field">
@@ -458,34 +510,9 @@ function CatalogueResults({
   return (
     <ul aria-busy={isUpdating} className={isUpdating ? "book-grid book-grid--updating" : "book-grid"}>
       {data.books.map((book) => (
-        <BookCard book={book} key={book.id} returnSearch={returnSearch} />
+        <BookSummaryCard book={book} key={book.id} returnSearch={returnSearch} />
       ))}
     </ul>
-  );
-}
-
-function BookCard({ book, returnSearch }: { book: CatalogueBookSummary; returnSearch: string }) {
-  const detailUrl = `/books/${book.id}?from=${encodeURIComponent(returnSearch)}`;
-  const visibleGenres = book.genres.slice(0, 2);
-
-  return (
-    <li className="book-card">
-      <Link aria-label={`Open ${book.title} by ${book.author}`} className="book-card__cover-link" tabIndex={-1} to={detailUrl}>
-        <BookCover compact seed={book.coverSeed} />
-      </Link>
-      <div className="book-card__metadata">
-        <h3><Link to={detailUrl}>{book.title}</Link></h3>
-        <p className="book-card__author">{book.author}</p>
-        <p className="book-card__facts">
-          <span>{book.publicationYear}</span>
-          <span aria-label={`Rated ${book.rating} out of 5`}>{book.rating.toFixed(1)} ★</span>
-        </p>
-        <div className="genre-list" aria-label={`Genres: ${book.genres.map((genre) => genre.name).join(", ")}`}>
-          {visibleGenres.map((genre) => <span className="genre-chip" key={genre.id}>{genre.name}</span>)}
-          {book.genres.length > 2 ? <span className="genre-more">+{book.genres.length - 2} more</span> : null}
-        </div>
-      </div>
-    </li>
   );
 }
 
@@ -503,6 +530,56 @@ function CatalogueSkeleton() {
         </div>
       ))}
     </div>
+  );
+}
+
+function ForYourShelves({
+  onRetry,
+  returnSearch,
+  state,
+}: {
+  onRetry(): void;
+  returnSearch: string;
+  state: PersonalisedState;
+}) {
+  if (state.kind === "checking" || state.kind === "absent") return null;
+
+  if (state.kind === "error" && !state.hasFavourites) {
+    return (
+      <div className="personalised-unavailable notice notice--info">
+        <span>We couldn’t check your personalised picks.</span>
+        <button className="button button--quiet" onClick={onRetry} type="button">Try again</button>
+      </div>
+    );
+  }
+
+  return (
+    <section aria-labelledby="for-your-shelves-heading" className="personalised-section">
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">PICKED FOR YOU</p>
+          <h2 id="for-your-shelves-heading">For your shelves</h2>
+          <p>Fresh picks from your favourite corners of the library.</p>
+        </div>
+      </div>
+
+      {state.kind === "loading" ? (
+        <p aria-live="polite" className="personalised-status">Loading personalised picks…</p>
+      ) : state.kind === "error" ? (
+        <div className="inline-error personalised-status">
+          <p>We couldn’t load your personalised picks.</p>
+          <button className="button button--quiet" onClick={onRetry} type="button">Try again</button>
+        </div>
+      ) : state.data.books.length === 0 ? (
+        <p className="personalised-status">No fresh picks are available right now.</p>
+      ) : (
+        <ul className="book-grid personalised-grid">
+          {state.data.books.map((book) => (
+            <BookSummaryCard book={book} key={book.id} returnSearch={returnSearch} />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

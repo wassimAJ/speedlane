@@ -10,6 +10,7 @@ import { ApiResponseError, isUnauthenticated, requestJson } from "../api";
 import { useAuth } from "../auth/AuthProvider";
 import { safeReturnCatalogueSearch } from "../catalogue/query";
 import { BookCover } from "../components/BookCover";
+import { ReadingListControls } from "../components/ReadingListControls";
 
 type DetailState =
   | { kind: "loading" }
@@ -133,6 +134,8 @@ export function BookDetailPage() {
           <p className="detail-rating" aria-label={`Rated ${book.rating} out of 5`}>
             {book.rating.toFixed(1)} ★
           </p>
+
+          <ReadingListControls bookId={book.id} />
 
           <section aria-labelledby="synopsis-heading" className="synopsis">
             <h2 id="synopsis-heading">About this book</h2>

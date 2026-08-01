@@ -51,6 +51,9 @@ function authenticatedFetch() {
     if (url.pathname === "/api/auth/me") return jsonResponse({ user });
     if (url.pathname === "/api/auth/login") return jsonResponse({ user });
     if (url.pathname === "/api/genres") return jsonResponse({ genres: [genre] });
+    if (url.pathname === "/api/me/favourite-genres") return jsonResponse({ genres: [] });
+    if (url.pathname === "/api/me/for-your-shelves") return jsonResponse({ books: [] });
+    if (url.pathname === "/api/me/reading-list") return jsonResponse({ entries: [] });
     if (url.pathname === "/api/books") return jsonResponse(catalogueResponse(url));
     if (url.pathname === `/api/books/${book.id}`) return jsonResponse({ book });
     if (url.pathname === "/api/auth/logout" && init?.method === "POST") {

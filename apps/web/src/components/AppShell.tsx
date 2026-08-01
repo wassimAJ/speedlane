@@ -14,7 +14,15 @@ export function AppShell() {
     return null;
   }
 
-  const currentDestination = location.pathname.startsWith("/books/") ? "Book detail" : "Catalogue";
+  const currentDestination = location.pathname.startsWith("/books/")
+    ? "Book detail"
+    : location.pathname === "/shelf"
+      ? "My Shelf"
+      : location.pathname === "/preferences"
+        ? "Favourite genres"
+        : "Catalogue";
+  const navClass = ({ isActive }: { isActive: boolean }) =>
+    isActive ? "nav-link nav-link--active" : "nav-link";
 
   async function handleSignOut() {
     setSignOutError(false);
@@ -44,10 +52,16 @@ export function AppShell() {
           <div className="desktop-header-actions">
             <nav aria-label="Primary navigation" className="primary-nav">
               <NavLink
-                className={({ isActive }) => (isActive ? "nav-link nav-link--active" : "nav-link")}
+                className={navClass}
                 to="/catalogue"
               >
                 Catalogue
+              </NavLink>
+              <NavLink className={navClass} to="/shelf">
+                My Shelf
+              </NavLink>
+              <NavLink className={navClass} to="/preferences">
+                Favourite genres
               </NavLink>
             </nav>
             <div className="account-actions">
@@ -70,8 +84,14 @@ export function AppShell() {
             <div className="mobile-menu__sheet">
               <p className="mobile-menu__user">{auth.state.user.displayName}</p>
               <nav aria-label="Mobile primary navigation">
-                <NavLink className="nav-link nav-link--active" to="/catalogue">
+                <NavLink className={navClass} to="/catalogue">
                   Catalogue
+                </NavLink>
+                <NavLink className={navClass} to="/shelf">
+                  My Shelf
+                </NavLink>
+                <NavLink className={navClass} to="/preferences">
+                  Favourite genres
                 </NavLink>
               </nav>
               <button
