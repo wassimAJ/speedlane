@@ -15,7 +15,10 @@ const CATALOGUE_QUERY_KEYS = new Set([
   "pageSize",
 ]);
 
+export type CatalogueBrowseMode = "pages" | "continuous";
+
 export interface ParsedCatalogueSearch {
+  browseMode: CatalogueBrowseMode;
   query: CatalogueBooksQuery;
   canonicalSearch: string;
   wasNormalized: boolean;
@@ -24,10 +27,23 @@ export interface ParsedCatalogueSearch {
 
 export const DEFAULT_CATALOGUE_QUERY = catalogueBooksQuerySchema.parse({});
 
-function rawQuery(search: string): Record<string, string | string[]> {
+function rawQuery(search: string): {
+  browse: string | string[] | undefined;
+  query: Record<string, string | string[]>;
+} {
   const raw: Record<string, string | string[]> = {};
+  let browse: string | string[] | undefined;
 
   for (const [key, value] of new URLSearchParams(search)) {
+    if (key === "browse") {
+      browse = browse === undefined
+        ? value
+        : Array.isArray(browse)
+          ? [...browse, value]
+          : [browse, value];
+      continue;
+    }
+
     if (!CATALOGUE_QUERY_KEYS.has(key)) {
       raw[key] = value;
       continue;
@@ -41,7 +57,7 @@ function rawQuery(search: string): Record<string, string | string[]> {
     }
   }
 
-  return raw;
+  return { browse, query: raw };
 }
 
 export function catalogueQueryToSearch(query: CatalogueBooksQuery): string {
@@ -61,11 +77,25 @@ export function catalogueQueryToSearch(query: CatalogueBooksQuery): string {
   return serialized.length > 0 ? `?${serialized}` : "";
 }
 
+export function catalogueLocationToSearch(
+  query: CatalogueBooksQuery,
+  browseMode: CatalogueBrowseMode,
+): string {
+  const parameters = new URLSearchParams(catalogueQueryToSearch(query));
+  if (browseMode === "continuous") parameters.set("browse", "continuous");
+  const serialized = parameters.toString();
+  return serialized.length > 0 ? `?${serialized}` : "";
+}
+
 export function parseCatalogueSearch(search: string): ParsedCatalogueSearch {
-  const parsed = catalogueBooksQuerySchema.safeParse(rawQuery(search));
+  const raw = rawQuery(search);
+  const parsed = catalogueBooksQuerySchema.safeParse(raw.query);
+  const browseIsValid = raw.browse === undefined || raw.browse === "continuous";
+  const browseMode: CatalogueBrowseMode = raw.browse === "continuous" ? "continuous" : "pages";
 
   if (!parsed.success) {
     return {
+      browseMode: "pages",
       query: DEFAULT_CATALOGUE_QUERY,
       canonicalSearch: "",
       wasNormalized: true,
@@ -73,12 +103,13 @@ export function parseCatalogueSearch(search: string): ParsedCatalogueSearch {
     };
   }
 
-  const canonicalSearch = catalogueQueryToSearch(parsed.data);
+  const canonicalSearch = catalogueLocationToSearch(parsed.data, browseMode);
   return {
+    browseMode,
     query: parsed.data,
     canonicalSearch,
     wasNormalized: canonicalSearch !== search,
-    wasInvalid: false,
+    wasInvalid: !browseIsValid,
   };
 }
 

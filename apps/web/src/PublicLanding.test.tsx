@@ -98,6 +98,9 @@ describe("public landing page", () => {
     });
     expect(previewList).not.toHaveTextContent("ISBN");
     expect(previewList).not.toHaveTextContent("synopsis");
+    expect(screen.queryByRole("group", { name: "Browse mode" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Load more books/i })).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith("/api/books"))).toBe(false);
   });
 
   it("shows the exact independence statement and navigates to existing sign in", async () => {

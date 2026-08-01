@@ -971,7 +971,7 @@ textarea {
 
 .result-toolbar__controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
 }
 
@@ -983,6 +983,68 @@ textarea {
 .compact-field select {
   min-height: 44px;
   font-size: 0.875rem;
+}
+
+.browse-mode {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.browse-mode legend {
+  margin-bottom: var(--space-1);
+  padding: 0;
+  font-family: var(--font-utility);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.browse-mode__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 2px solid var(--color-rule);
+  border-radius: 2px;
+  background: var(--color-paper-raised);
+}
+
+.browse-mode__options label {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font-family: var(--font-utility);
+  font-size: 0.8rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.browse-mode__options label + label {
+  border-left: 1px solid var(--color-rule);
+}
+
+.browse-mode__options label:has(input:checked) {
+  color: white;
+  background: var(--color-library-red);
+  font-weight: 600;
+}
+
+.browse-mode__options label:has(input:focus-visible) {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid var(--color-library-red-dark);
+  outline-offset: 2px;
+}
+
+.browse-mode__options input {
+  width: 1rem;
+  min-height: 1rem;
+  margin: 0;
+  box-shadow: none;
+  accent-color: var(--color-library-red-dark);
 }
 
 .book-grid {
@@ -997,6 +1059,25 @@ textarea {
 .book-grid--updating {
   opacity: 0.65;
   transition-duration: 100ms;
+}
+
+.book-grid--continuous .book-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
+}
+
+.book-card--appended {
+  animation: catalogue-append 120ms ease-out;
+}
+
+@keyframes catalogue-append {
+  from {
+    opacity: 0.82;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .book-card {
@@ -1238,6 +1319,40 @@ textarea {
   width: min(100%, 12rem);
 }
 
+.continuous-browsing {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+  border-top: 2px solid var(--color-ink);
+  padding-top: var(--space-4);
+}
+
+.continuous-sentinel {
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
+
+.continuous-status {
+  display: flex;
+  min-height: 64px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--space-3);
+  font-family: var(--font-utility);
+  font-size: 0.8rem;
+}
+
+.continuous-status p {
+  margin: 0;
+}
+
+.continuous-load-button {
+  width: 100%;
+  touch-action: manipulation;
+}
+
 /* Mobile filters */
 
 .drawer-layer {
@@ -1420,12 +1535,12 @@ textarea {
     min-width: 7rem;
   }
 
-  .result-toolbar {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .result-toolbar__controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .result-toolbar__controls {
-    grid-template-columns: auto minmax(10rem, 13rem);
+  .browse-mode {
+    grid-column: 1 / -1;
   }
 
   .book-grid {
@@ -1453,6 +1568,16 @@ textarea {
   .pagination-block {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
+  }
+
+  .continuous-status {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .continuous-load-button {
+    width: auto;
   }
 }
 
@@ -1492,6 +1617,10 @@ textarea {
     align-items: end;
     justify-content: space-between;
     gap: var(--space-8);
+  }
+
+  .result-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .book-grid {
@@ -1545,7 +1674,11 @@ textarea {
   }
 
   .result-toolbar__controls {
-    grid-template-columns: minmax(10rem, 13rem);
+    grid-template-columns: minmax(10rem, 13rem) minmax(14rem, auto);
+  }
+
+  .browse-mode {
+    grid-column: auto;
   }
 
   .filter-form__actions {
@@ -1596,6 +1729,10 @@ textarea {
     transform: none;
   }
 
+  .book-card--appended {
+    animation: none;
+  }
+
   .skip-link:not(:focus) {
     clip: rect(0, 0, 0, 0);
   }
@@ -1629,6 +1766,21 @@ textarea {
   }
 
   :focus-visible {
+    outline-color: Highlight;
+  }
+
+  .browse-mode__options,
+  .browse-mode__options label,
+  .continuous-browsing {
+    border-color: CanvasText;
+  }
+
+  .browse-mode__options label:has(input:checked) {
+    color: HighlightText;
+    background: Highlight;
+  }
+
+  .browse-mode__options label:has(input:focus-visible) {
     outline-color: Highlight;
   }
 }

@@ -21,9 +21,9 @@ cart, Amazon-like orange and black, or Amazon typography and trade dress.
    empty results, saved actions, and unavailable records are explicitly named.
 5. **Mobile is a composition, not a crop.** At 320px, actions remain visible,
    controls remain labelled, and nothing requires horizontal page scrolling.
-6. **The URL is part of the interface.** Catalogue search, filters, sort, page,
-   and page size are represented in the URL and restored by back/forward
-   navigation.
+6. **The URL is part of the interface.** Catalogue search, filters, sort,
+   browse mode, page/loaded depth, and page size are represented in the URL and
+   restored by back/forward navigation.
 
 ## Foundations
 
@@ -250,13 +250,20 @@ count may align to the lower edge of the page header.
 The catalogue is one coherent browsing workspace, not a dashboard of unrelated
 cards.
 
+The newer parent direction introduces selectable continuous browsing as a
+narrow exception to the product specification's former infinite-scroll
+non-goal. The exception applies only to the authenticated, already-paginated
+catalogue. The visitor landing and `GET /api/discover` remain exactly six
+non-paginated previews with no browse-mode control, `Load more`, or auto-load.
+No API or authentication contract changes are part of this exception.
+
 1. Application header.
 2. Page header.
 3. Optional `For your shelves` section, only when the signed-in reader has
    active favourite genres.
 4. Search row.
 5. Catalogue workspace: filter rail/drawer followed by result region.
-6. Pagination and page-size control.
+6. Browse-mode, pagination/load-more, and page-size controls.
 
 ### Search and URL behavior
 
@@ -267,14 +274,15 @@ cards.
 - Search covers title and author only. UI copy must never imply synopsis, ISBN,
   genre, or full-text search.
 - The URL is authoritative for `q`, `genre`, `yearFrom`, `yearTo`, `sort`,
-  `page`, and `pageSize`. Populate controls from validated URL values.
+  `page`, `pageSize`, and the UI-only browse mode described below. Populate
+  controls from validated URL values.
 - A search or filter submission, sort change, or page-size change returns to
   page 1. Pagination changes only `page`.
 - Browser back/forward restores the controls and results without losing the
   current shell.
-- `Reset all` clears search and filters, restores `Newest`, page 1, and 24 per
-  page. When no non-default state exists, render it disabled rather than hide
-  it and shift the layout.
+- `Reset all` clears search and filters, restores `Newest`, `Pages`, page 1,
+  and 24 per page. When no non-default state exists, render it disabled rather
+  than hide it and shift the layout.
 
 ### Filters and sort
 
@@ -296,6 +304,8 @@ The result toolbar contains:
 - Mobile filter trigger: `Filters` plus a count, for example `Filters (2)`.
 - Sort select labelled `Sort by`, with exactly `Newest`, `Title A–Z`, and
   `Highest rated`.
+- A `Browse mode` fieldset with `Pages` and `Continuous`, placed after sort in
+  DOM order.
 
 At widths below 1024px, filters open in a labelled modal drawer. It occupies the
 full viewport at 320–479px and no more than `400px` from 480px. Trap focus while
@@ -359,7 +369,7 @@ personalised books only when at least one favourite is active.
   recommendation section.
 - Personalised results never alter the ordinary catalogue's order or count.
 
-### Pagination
+### Pages mode (default)
 
 - Place pagination after the result list in document order.
 - Label the region `Catalogue pages`.
@@ -373,6 +383,196 @@ personalised books only when at least one favourite is active.
   24 as default and 48 as the maximum.
 - On page change, move focus to the result heading or focusable result summary,
   not the top of the document. Announce the new result summary politely.
+
+### Continuous mode (selectable)
+
+Continuous mode progressively appends ordinary authenticated catalogue pages.
+It does not change server sorting, filtering, archive visibility, page-size
+limits, authentication, or response schemas.
+
+#### Browse-mode control and URL state
+
+- Use a native `fieldset` with the visible legend `Browse mode` and two radios:
+  `Pages` and `Continuous`. Style them as a compact two-segment control while
+  retaining native checked and focus semantics. Do not use an unlabeled icon or
+  switch labelled only `Infinite scroll`.
+- `Pages` is checked when the URL omits browse mode and is the fallback for an
+  absent, empty, or invalid value. `Continuous` is represented by the UI-only
+  query parameter `browse=continuous`; never serialize `browse=pages`.
+- Extract and validate `browse` in the frontend before parsing or constructing
+  the shared catalogue API query. Never forward it to `/api/books`; the API
+  continues to receive only `q`, `genre`, `yearFrom`, `yearTo`, `sort`, `page`,
+  and `pageSize`.
+- Changing mode creates one browser-history entry, resets to page 1, clears the
+  ordinary results, and loads the first batch under the current search,
+  filters, sort, and page size. Focus remains on the checked radio; a polite
+  announcement confirms the loaded result state. Do not smooth-scroll.
+- In continuous mode, `page` means the highest page successfully appended.
+  Successful automatic or manual append uses `history.replaceState`, not
+  `pushState`, so scrolling through ten batches does not create ten Back-button
+  stops. Page 1 may remain omitted in the canonical URL.
+- `pageSize` remains the existing 12/24/48 batch size. Relabel the control
+  `Books per load` in Continuous and `Books per page` in Pages; both write the
+  same `pageSize` query value and retain 24 as default and 48 as maximum.
+
+#### Query changes, reset, and restoration
+
+- Search, genre/year filters, sort, and page-size changes preserve the selected
+  browse mode but abort in-flight work, discard all appended pages, reset
+  `page` to 1, and load a fresh first batch. Keep the personalized `For your
+  shelves` section independent from this reset.
+- `Reset all` is stronger: it restores Pages, empty search/filters, Newest,
+  page 1, and 24 per page/load. Continuous alone is non-default state, so
+  `Reset all` remains enabled when it is selected.
+- Every request belongs to a fingerprint of `q`, `genre`, `yearFrom`, `yearTo`,
+  `sort`, and `pageSize`. Abort old requests and ignore late responses whose
+  fingerprint or expected page no longer matches the active state.
+- Cache successfully loaded pages and the first visible book ID in session
+  memory under that fingerprint. When browser Back/Forward returns to a
+  continuous entry, restore cached pages through the URL's `page` value before
+  restoring the book anchor or saved scroll position.
+- A cold/direct visit to `browse=continuous&page=n` loads pages 1 through `n`
+  in page order with bounded concurrency, then starts observation. Do not append
+  page `n+1` until all preceding pages have succeeded. While rebuilding, copy is
+  `Restoring your place in the catalogue…`.
+- Book-detail links preserve the complete catalogue return query, including
+  browse mode and loaded-through page, plus the selected book ID as a history
+  anchor. Returning rehydrates results before focusing or scrolling to that
+  book. If no cache/anchor exists, restore the loaded depth and start at the
+  results heading rather than guessing a scroll coordinate.
+
+#### Near-end auto-load and keyboard fallback
+
+- After the first batch, observe one non-focusable sentinel after the list.
+  Start one next-page request when it enters a bottom root margin equal to 75%
+  of the viewport. Never issue more than one append request at a time or request
+  beyond `meta.totalPages`.
+- Automatic loading begins only because the reader explicitly selected
+  Continuous. If `IntersectionObserver` is unavailable, Continuous degrades to
+  manual loading; do not add a high-frequency scroll listener.
+- Always render a 44px-minimum `Load more books` button in a stable action
+  region while more pages exist. It is the keyboard, switch-control, reduced
+  dexterity, and observer fallback—not a hidden secondary path.
+- Pause automatic loading when keyboard navigation has entered the book-list or
+  load-action region. Keep it paused while focus remains there; the reader uses
+  `Load more books`. Pointer/touch scrolling may resume observation after focus
+  leaves that protected region. Never move a focused load button by starting an
+  automatic request behind it.
+- During a request, keep the button node in place, disabled, and labelled
+  `Loading more books…`. On manual success, move focus to the title link of the
+  first newly appended book. On automatic success, do not move focus or scroll.
+- If manual loading reaches the end, focus still moves to the first newly added
+  title; the end message follows the list. If a request returns no new unique
+  books at the final page, focus the end-status container with `tabIndex=-1`.
+
+#### Ordering, identity, and request safety
+
+- Render all loaded books in one semantic `<ul>` and append `<li>` items in
+  server page order. Do not create separate page lists, page headings, or a
+  `role="feed"`.
+- Track seen book IDs for the active fingerprint. Keep the first occurrence and
+  discard any repeated ID before render; never use array index as the React key.
+  A duplicate-only page still advances only after its response is validated,
+  and the visible status reports the number of unique books actually added.
+- Request pages strictly as the next contiguous page. A double intersection,
+  double click, React Strict Mode effect, or retry cannot append the same page
+  twice. A retry targets the failed page, not the page after it.
+- Stable server sorts by book ID remain authoritative. Client deduplication is a
+  safety net, not permission to re-sort, merge personalized books, or infer
+  missing catalogue records.
+
+#### Status copy and semantics
+
+Use one visible status/action block after the list and one separate
+`aria-live="polite"`, `aria-atomic="true"` announcement node. Set
+`aria-busy="true"` on the ordinary-results region during a request, not on the
+page or personalized section. The sentinel is `aria-hidden="true"`.
+
+| Continuous state | Visible copy | Live announcement |
+| --- | --- | --- |
+| First batch ready | `24 of 117 books loaded` | `Continuous browsing selected. 24 of 117 books loaded.` |
+| Automatic/manual request | `Loading more books…` | Announce once when loading starts; do not announce skeletons |
+| Append succeeds | `48 of 117 books loaded` | `Loaded 24 more books. 48 of 117 shown.` |
+| Append fails | `We couldn’t load more books.` plus `Try loading more` | `More books could not be loaded.` |
+| Retry running | `Loading more books…` | `Trying to load more books.` |
+| End reached | `You’ve reached the end of the catalogue. 117 books shown.` | Same sentence, once |
+| Restore running | `Restoring your place in the catalogue…` | Same sentence, once |
+
+Keep already loaded books fully usable after an append error. Do not replace
+them with the catalogue-wide error state, automatically retry in a loop, or
+announce every title. `Try loading more` retries the failed page and retains
+focus until success.
+
+#### Responsive layout, focus, and motion
+
+- At 320–479px, stack result summary, filter/sort controls, and the browse-mode
+  fieldset in that DOM order. The two mode labels fill one row with 44px targets.
+  The load action is full width below the one-column result list.
+- From 480px, the fieldset may sit beside sort when both labels remain visible.
+  It must wrap below rather than truncate. Result column counts and book-card
+  anatomy remain exactly as defined for the ordinary catalogue.
+- Keep the result status/action region at least 64px tall so loading, retry, and
+  end copy do not make the bottom of the list jump. Never make it sticky or
+  overlay the final book.
+- Mode, filter, sort, page-size, and reset changes leave focus on the initiating
+  control while the first batch loads. Pagination retains its existing focus-to
+  summary behavior. Manual load moves focus only as defined above; automatic
+  append never changes focus.
+- Appended cards may fade from `0.82` to `1` over `120ms` without translation;
+  this is part of the existing filter/result-transition motion family, not a
+  fourth motion. Existing cards do not reanimate. Under
+  `prefers-reduced-motion: reduce`, append and replacement are instantaneous,
+  scroll restoration is never smooth, and all textual/focus feedback remains.
+
+#### Browse-mode acceptance criteria
+
+Automated tests must confirm:
+
+1. Missing/invalid browse state renders Pages, invalid state is normalized, and
+   `browse` never appears in an API request.
+2. Selecting Continuous pushes one canonical URL entry, resets page 1, keeps
+   active search/filter/sort/page-size values, and selecting Pages does the
+   inverse without changing an API contract.
+3. The observer requests only the next page, permits one in-flight append, uses
+   replace-state after success, stops at `totalPages`, and degrades to a working
+   Load-more button without `IntersectionObserver`.
+4. Repeated responses, double triggers, retries, stale responses, and Strict
+   Mode effects do not render duplicate IDs or skip to a later page.
+5. Filter, search, sort, and page-size changes abort stale work and reset loaded
+   books while retaining Continuous; `Reset all` returns to Pages and all other
+   defaults.
+6. Keyboard activation of Load more focuses the first new title; automatic
+   append preserves focus/scroll; keyboard focus in the protected result zone
+   prevents background auto-load.
+7. Loading, success, retry, end, and restoration states expose the exact visible
+   and polite-live copy once, retain the existing list on append failure, and
+   set busy state only on ordinary results.
+8. Browser history and detail-return restoration rebuild through the stored
+   page, restore a known book anchor, and avoid one history entry per append.
+9. Reduced-motion mode removes append/filter fades without removing status or
+   focus behavior.
+10. The visitor landing still renders at most six discovery previews, contains
+    no browse-mode/load-more control, and makes no paginated catalogue request.
+
+Manual accessibility and interaction checks must cover:
+
+- Pages and Continuous at 320, 480, 768, 1024, and 1280px; 200% and 400% zoom;
+  keyboard only; touch; wheel/trackpad; and browser Back/Forward.
+- NVDA or VoiceOver confirmation that the mode fieldset has one legend, checked
+  state is announced, the list remains one list, append announcements occur
+  once, and newly appended titles are reachable in logical order.
+- Tabbing through the final visible cards to `Load more books` without the
+  button escaping due to auto-load, then verifying focus lands on the first new
+  title after activation.
+- Slow, failed, retried, aborted, duplicate, empty-final-page, and session-expiry
+  requests without loss of already loaded books or exposure of archived data.
+- Continuous-to-detail-to-Back restoration at shallow and deepest seeded page,
+  including a cold URL restore without cache.
+- Forced colours and reduced motion, with visible radio selection, focus rings,
+  button states, status copy, and no smooth-scroll motion.
+
+Record manual results only after they are performed; automated coverage does
+not certify visual scroll restoration or assistive-technology announcements.
 
 ## Book detail composition
 
@@ -786,8 +986,9 @@ browse`. Do not add registration-shaped controls that route back to sign-in.
    main landmark, sign-out feedback, session-expired handling, and 320px
    keyboard behavior.
 3. **Keep catalogue query state reliable.** Parse and normalize URL state with
-   the shared Zod contract; preserve submit/reset, back/forward restoration,
-   page-reset rules, and safe malformed-query handling.
+   the shared Zod contract plus the frontend-only browse mode; preserve
+   submit/reset, back/forward restoration, page-reset rules, and safe
+   malformed-query handling without forwarding UI state to the API.
 4. **Reuse the established controls.** Use the same buttons, field rows,
    labelled inputs/selects, reserved support trays, field errors, notices,
    drawer/dialog behavior, result status, and focus treatment across reader and
@@ -796,14 +997,15 @@ browse`. Do not add registration-shaped controls that route back to sign-in.
    book forms consume active genres from the API; no seeded genre is hard-coded.
 6. **Preserve complete catalogue states.** Retain static skeletons, busy
    transition, loaded summary, no-match, empty-catalogue, retryable error, 401,
-   and unexpected-error treatments.
+   unexpected-error, append, retry-append, restoration, and end treatments.
 7. **Maintain one book-summary language.** Use deterministic 2:3 covers and the
    title/author/year/rating/genre hierarchy in ordinary and personalised
    results; never expose `coverSeed` or internal fields as copy.
 8. **Regression-test responsive catalogue behavior.** Cover the base horizontal
    result row, wider vertical grids, persistent desktop rail, mobile filter
-   drawer, stable updates, pagination capped at 48, focus after page changes,
-   and browser history.
+   drawer, Pages default, selectable Continuous mode, keyboard Load more,
+   near-end observation, batch size capped at 48, focus/restoration, deduping,
+   reduced motion, and browser history.
 9. **Protect detail and shelf integration.** Preserve the catalogue return
    query, reader-safe archived/unknown 404, add/update/remove shelf controls,
    mutation feedback, and publication-facts definition list.
@@ -823,12 +1025,26 @@ browse`. Do not add registration-shaped controls that route back to sign-in.
 14. **Run accessibility and responsive regression checks.** Cover 320, 480,
     768, 1024, and 1280px; keyboard-only operation; screen-reader names/status;
     200% and 400% zoom; forced colours; reduced motion; slow/failing requests;
-    long content; session expiry; reader-safe archive behavior; and dialog
-    focus return. Record manual checks when performed; this document alone is
+    long content; append/end/retry states; session expiry; reader-safe archive
+    behavior; and dialog focus return. Confirm public discovery remains six and
+    non-paginated. Record manual checks when performed; this document alone is
     not certification that they passed.
 
 ## Design risks to keep under regression
 
+- Offset-based catalogue pages can shift if books are created or archived
+  between append requests. ID deduplication prevents repeats but cannot prove
+  there are no gaps without a cursor/snapshot API, which this milestone does not
+  authorize; keep this limitation visible in implementation review.
+- Deep cold restoration may require several existing page requests. Bound
+  concurrency, cancel aggressively, prefer the session cache, and test the
+  deepest seeded result without changing the API contract.
+- Keyboard-modality detection and observer timing can move the Load-more action
+  if implemented loosely. Treat focus inside the protected list/action zone as
+  an unconditional pause and test slow rendering as well as fast fixtures.
+- The frontend-only `browse` parameter must be separated before strict shared
+  query parsing and API serialization or it will either normalize away or cause
+  a validation error.
 - Offset Index micro-mark edges and paper knockout need checking in light and
   dark browser chrome at actual 16px/20px favicon sizes, not only enlarged SVG
   previews.

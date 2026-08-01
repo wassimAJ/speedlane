@@ -1,6 +1,5 @@
 import {
   CATALOGUE_DEFAULT_PAGE_SIZE,
-  catalogueBooksResponseSchema,
   genresResponseSchema,
   type CatalogueBooksQuery,
   type CatalogueBooksResponse,
@@ -12,27 +11,29 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent as ReactFocusEvent,
   type FormEvent,
+  type RefObject,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { isUnauthenticated, requestJson } from "../api";
 import { useAuth } from "../auth/AuthProvider";
 import {
-  catalogueQueryToSearch,
+  catalogueLocationToSearch,
   isDefaultCatalogueQuery,
   parseCatalogueSearch,
+  type CatalogueBrowseMode,
 } from "../catalogue/query";
+import {
+  useCatalogueBooks,
+  type CatalogueBooksState,
+  type ContinuousAppendState,
+} from "../catalogue/useCatalogueBooks";
 import { BookSummaryCard } from "../components/BookSummaryCard";
 import { FilterForm, type FilterDraft } from "../components/FilterForm";
 import { getFavouriteGenres, getForYourShelves } from "../engagement/api";
 import { useMediaQuery } from "../hooks/useMediaQuery";
-
-type BooksState =
-  | { kind: "loading" }
-  | { kind: "updating"; data: CatalogueBooksResponse }
-  | { kind: "ready"; data: CatalogueBooksResponse }
-  | { kind: "error" };
 
 type GenresState =
   | { kind: "loading" }
@@ -81,6 +82,7 @@ export function CataloguePage() {
   const navigate = useNavigate();
   const parsedSearch = useMemo(() => parseCatalogueSearch(location.search), [location.search]);
   const query = parsedSearch.query;
+  const browseMode = parsedSearch.browseMode;
   const [searchDraft, setSearchDraft] = useState(query.q ?? "");
   const [filterDraft, setFilterDraft] = useState<FilterDraft>(() => filterDraftFromQuery(query));
   const [yearError, setYearError] = useState<string | null>(null);
@@ -88,7 +90,6 @@ export function CataloguePage() {
   const [booksAttempt, setBooksAttempt] = useState(0);
   const [genresAttempt, setGenresAttempt] = useState(0);
   const [personalisedAttempt, setPersonalisedAttempt] = useState(0);
-  const [booksState, setBooksState] = useState<BooksState>({ kind: "loading" });
   const [genresState, setGenresState] = useState<GenresState>({ kind: "loading" });
   const [personalisedState, setPersonalisedState] = useState<PersonalisedState>({ kind: "checking" });
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -97,6 +98,26 @@ export function CataloguePage() {
   const firstFilterControlRef = useRef<HTMLSelectElement>(null);
   const resultSummaryRef = useRef<HTMLParagraphElement>(null);
   const focusResultsAfterLoad = useRef(false);
+  const continuousSentinelRef = useRef<HTMLDivElement>(null);
+  const continuousObserverRef = useRef<IntersectionObserver | null>(null);
+  const automaticLoadingPausedRef = useRef(false);
+  const loadMoreRef = useRef<(trigger: "automatic" | "manual" | "retry") => Promise<void>>(
+    async () => {},
+  );
+  const userId = auth.state.status === "authenticated" ? auth.state.user.id : "anonymous";
+  const books = useCatalogueBooks({
+    attempt: booksAttempt,
+    browseMode,
+    onDepthChange: replaceContinuousDepth,
+    onExpireSession: auth.expireSession,
+    query,
+    userId,
+  });
+  const readyData = books.data;
+  const loadedPage = readyData?.meta.page ?? 0;
+  const hasMoreContinuousBooks = browseMode === "continuous" && readyData !== null &&
+    readyData.meta.page < readyData.meta.totalPages;
+  loadMoreRef.current = books.loadMore;
 
   useEffect(() => {
     if (parsedSearch.wasNormalized) {
@@ -112,36 +133,81 @@ export function CataloguePage() {
   }, [location.search, query.genre, query.q, query.yearFrom, query.yearTo]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    setBooksState((current) =>
-      current.kind === "ready" || current.kind === "updating"
-        ? { kind: "updating", data: current.data }
-        : { kind: "loading" },
-    );
+    if (books.state.kind !== "ready" || !focusResultsAfterLoad.current) return;
+    focusResultsAfterLoad.current = false;
+    const frame = window.requestAnimationFrame(() => resultSummaryRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [books.state.kind, loadedPage]);
 
-    requestJson(
-      `/api/books${catalogueQueryToSearch(query)}`,
-      catalogueBooksResponseSchema,
-      { signal: controller.signal },
-    )
-      .then((data) => {
-        setBooksState({ kind: "ready", data });
-        if (focusResultsAfterLoad.current) {
-          focusResultsAfterLoad.current = false;
-          requestAnimationFrame(() => resultSummaryRef.current?.focus());
-        }
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        if (isUnauthenticated(error)) {
-          auth.expireSession();
-          return;
-        }
-        setBooksState({ kind: "error" });
-      });
+  useEffect(() => {
+    const target = books.restoration;
+    if (!target || books.state.kind !== "ready") return;
 
-    return () => controller.abort();
-  }, [auth.expireSession, booksAttempt, query]);
+    const frame = window.requestAnimationFrame(() => {
+      const titleLink = target.anchorBookId
+        ? document.getElementById(`catalogue-book-${target.anchorBookId}`)?.querySelector<HTMLElement>("[data-book-title-link]")
+        : null;
+
+      if (titleLink) {
+        titleLink.focus({ preventScroll: true });
+        titleLink.scrollIntoView?.({ behavior: "auto", block: "center" });
+      } else if (target.anchorBookId === undefined && target.scrollY !== undefined) {
+        window.scrollTo({ behavior: "auto", top: target.scrollY });
+      } else {
+        resultSummaryRef.current?.focus();
+      }
+      books.clearRestoration();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [books.restoration?.token, books.state.kind]);
+
+  useEffect(() => {
+    const target = books.appendFocusTarget;
+    if (!target || books.state.kind !== "ready") return;
+
+    const element = target === "end"
+      ? document.querySelector<HTMLElement>("[data-continuous-end]")
+      : document.getElementById(`catalogue-book-${target}`)?.querySelector<HTMLElement>("[data-book-title-link]");
+    if (!element) return;
+
+    element.focus({ preventScroll: true });
+    element.scrollIntoView?.({ behavior: "auto", block: "nearest" });
+    books.clearAppendFocusTarget();
+  }, [books.appendFocusTarget, books.state.kind]);
+
+  useEffect(() => {
+    continuousObserverRef.current?.disconnect();
+    continuousObserverRef.current = null;
+
+    if (
+      browseMode !== "continuous" ||
+      !hasMoreContinuousBooks ||
+      books.state.kind !== "ready" ||
+      books.appendState.kind !== "idle" ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return;
+    }
+
+    const sentinel = continuousSentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (
+        entries.some((entry) => entry.isIntersecting) &&
+        !automaticLoadingPausedRef.current
+      ) {
+        void loadMoreRef.current("automatic");
+      }
+    }, { rootMargin: "0px 0px 75% 0px" });
+    continuousObserverRef.current = observer;
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+      if (continuousObserverRef.current === observer) continuousObserverRef.current = null;
+    };
+  }, [books.appendState.kind, books.state.kind, browseMode, hasMoreContinuousBooks, loadedPage]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -239,9 +305,30 @@ export function CataloguePage() {
     if (isDesktop && filtersOpen) setFiltersOpen(false);
   }, [filtersOpen, isDesktop]);
 
-  function commit(nextQuery: CatalogueBooksQuery, options?: { focusResults?: boolean }) {
+  function replaceContinuousDepth(page: number) {
+    navigate(
+      {
+        pathname: "/catalogue",
+        search: catalogueLocationToSearch({ ...query, page }, "continuous"),
+      },
+      { replace: true },
+    );
+  }
+
+  function commit(
+    nextQuery: CatalogueBooksQuery,
+    options?: { browseMode?: CatalogueBrowseMode; focusResults?: boolean },
+  ) {
     focusResultsAfterLoad.current = options?.focusResults ?? false;
-    navigate({ pathname: "/catalogue", search: catalogueQueryToSearch(nextQuery) });
+    navigate({
+      pathname: "/catalogue",
+      search: catalogueLocationToSearch(nextQuery, options?.browseMode ?? browseMode),
+    });
+  }
+
+  function changeBrowseMode(nextMode: CatalogueBrowseMode) {
+    if (nextMode === browseMode) return;
+    commit({ ...query, page: 1 }, { browseMode: nextMode });
   }
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
@@ -287,6 +374,21 @@ export function CataloguePage() {
     setFiltersOpen(false);
   }
 
+  function pauseAutomaticLoading() {
+    automaticLoadingPausedRef.current = true;
+  }
+
+  function resumeAutomaticLoading(event: ReactFocusEvent<HTMLDivElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    automaticLoadingPausedRef.current = false;
+    const observer = continuousObserverRef.current;
+    const sentinel = continuousSentinelRef.current;
+    if (observer && sentinel) {
+      observer.unobserve(sentinel);
+      observer.observe(sentinel);
+    }
+  }
+
   const filterForm = (
     <FilterForm
       draft={filterDraft}
@@ -294,7 +396,7 @@ export function CataloguePage() {
       firstControlRef={!isDesktop ? firstFilterControlRef : undefined}
       genres={genresState.kind === "ready" ? genresState.data.genres : []}
       genresError={genresState.kind === "error"}
-      isResetDisabled={isDefaultCatalogueQuery(query)}
+      isResetDisabled={browseMode === "pages" && isDefaultCatalogueQuery(query)}
       onApply={applyFilters}
       onChange={setFilterDraft}
       onReset={resetAll}
@@ -302,9 +404,6 @@ export function CataloguePage() {
     />
   );
 
-  const readyData = booksState.kind === "ready" || booksState.kind === "updating"
-    ? booksState.data
-    : null;
   const count = activeFilterCount(query);
 
   return (
@@ -334,8 +433,10 @@ export function CataloguePage() {
         <div className="field search-form__field">
           <label htmlFor="catalogue-search">Search by title or author</label>
           <input
+            autoComplete="off"
             id="catalogue-search"
             maxLength={200}
+            name="q"
             onChange={(event) => setSearchDraft(event.target.value)}
             placeholder="Try Octavia Butler"
             type="search"
@@ -355,23 +456,32 @@ export function CataloguePage() {
           </aside>
         ) : null}
 
-        <section aria-labelledby="catalogue-results-title" className="result-region">
+        <section
+          aria-busy={books.isBusy ? "true" : undefined}
+          aria-labelledby="catalogue-results-title"
+          className="result-region"
+        >
           <div className="result-toolbar">
             <div>
               <h2 className="visually-hidden" id="catalogue-results-title">Catalogue results</h2>
               <p
-                aria-live="polite"
+                aria-live={browseMode === "pages" ? "polite" : undefined}
+                aria-atomic={browseMode === "pages" ? "true" : undefined}
                 className="result-summary"
                 ref={resultSummaryRef}
                 tabIndex={-1}
               >
-                {booksState.kind === "loading"
+                {books.state.kind === "loading"
                   ? "Loading books…"
-                  : booksState.kind === "error"
+                  : books.state.kind === "restoring"
+                    ? "Restoring your place in the catalogue…"
+                  : books.state.kind === "error"
                     ? "Catalogue unavailable"
-                    : resultSummary(booksState.data)}
+                    : browseMode === "continuous"
+                      ? `${books.state.data.books.length} of ${books.state.data.meta.totalItems} books loaded`
+                      : resultSummary(books.state.data)}
               </p>
-              {booksState.kind === "updating" ? (
+              {books.state.kind === "updating" ? (
                 <span className="updating-status" role="status">Updating the catalogue…</span>
               ) : null}
             </div>
@@ -391,6 +501,7 @@ export function CataloguePage() {
                 <label htmlFor="catalogue-sort">Sort by</label>
                 <select
                   id="catalogue-sort"
+                  name="sort"
                   onChange={(event) =>
                     commit({ ...query, sort: event.target.value as CatalogueBooksQuery["sort"], page: 1 })
                   }
@@ -401,21 +512,45 @@ export function CataloguePage() {
                   <option value="rating">Highest rated</option>
                 </select>
               </div>
+              <BrowseModeControl browseMode={browseMode} onChange={changeBrowseMode} />
             </div>
           </div>
 
-          <CatalogueResults
-            data={readyData}
-            isDefaultQuery={isDefaultCatalogueQuery(query)}
-            isUpdating={booksState.kind === "updating"}
-            onFirstPage={() => commit({ ...query, page: 1 }, { focusResults: true })}
-            onReset={resetAll}
-            onRetry={() => setBooksAttempt((attempt) => attempt + 1)}
-            state={booksState.kind}
-            returnSearch={location.search}
-          />
+          <div
+            className={browseMode === "continuous" ? "continuous-results-zone" : undefined}
+            onBlurCapture={browseMode === "continuous" ? resumeAutomaticLoading : undefined}
+            onFocusCapture={browseMode === "continuous" ? pauseAutomaticLoading : undefined}
+          >
+            <CatalogueResults
+              appendedIds={books.appendedIds}
+              browseMode={browseMode}
+              data={readyData}
+              isDefaultQuery={isDefaultCatalogueQuery(query)}
+              isUpdating={books.state.kind === "updating"}
+              onFirstPage={() => commit({ ...query, page: 1 }, { focusResults: true })}
+              onNavigateBook={books.rememberBookAnchor}
+              onReset={resetAll}
+              onRetry={() => setBooksAttempt((attempt) => attempt + 1)}
+              returnSearch={location.search}
+              state={books.state.kind}
+            />
 
-          {readyData && readyData.meta.totalItems > 0 ? (
+            {browseMode === "continuous" ? (
+              <ContinuousBrowsingControls
+                announcement={books.announcement}
+                appendState={books.appendState}
+                data={readyData}
+                hasMore={hasMoreContinuousBooks}
+                onLoadMore={books.loadMore}
+                onPageSize={(pageSize) => commit({ ...query, pageSize, page: 1 })}
+                pageSize={query.pageSize}
+                sentinelRef={continuousSentinelRef}
+                state={books.state.kind}
+              />
+            ) : null}
+          </div>
+
+          {browseMode === "pages" && readyData && readyData.meta.totalItems > 0 ? (
             <Pagination
               data={readyData}
               onPage={(page) => commit({ ...query, page }, { focusResults: true })}
@@ -454,26 +589,68 @@ export function CataloguePage() {
   );
 }
 
+function BrowseModeControl({
+  browseMode,
+  onChange,
+}: {
+  browseMode: CatalogueBrowseMode;
+  onChange(mode: CatalogueBrowseMode): void;
+}) {
+  return (
+    <fieldset className="browse-mode">
+      <legend>Browse mode</legend>
+      <div className="browse-mode__options">
+        <label>
+          <input
+            checked={browseMode === "pages"}
+            name="catalogue-browse-mode"
+            onChange={() => onChange("pages")}
+            type="radio"
+            value="pages"
+          />
+          <span>Pages</span>
+        </label>
+        <label>
+          <input
+            checked={browseMode === "continuous"}
+            name="catalogue-browse-mode"
+            onChange={() => onChange("continuous")}
+            type="radio"
+            value="continuous"
+          />
+          <span>Continuous</span>
+        </label>
+      </div>
+    </fieldset>
+  );
+}
+
 function CatalogueResults({
+  appendedIds,
+  browseMode,
   data,
   isDefaultQuery,
   isUpdating,
   onFirstPage,
+  onNavigateBook,
   onReset,
   onRetry,
   returnSearch,
   state,
 }: {
+  appendedIds: Set<string>;
+  browseMode: CatalogueBrowseMode;
   data: CatalogueBooksResponse | null;
   isDefaultQuery: boolean;
   isUpdating: boolean;
   onFirstPage(): void;
+  onNavigateBook(bookId: string): void;
   onReset(): void;
   onRetry(): void;
   returnSearch: string;
-  state: BooksState["kind"];
+  state: CatalogueBooksState["kind"];
 }) {
-  if (state === "loading") return <CatalogueSkeleton />;
+  if (state === "loading" || state === "restoring") return <CatalogueSkeleton />;
 
   if (state === "error") {
     return (
@@ -508,11 +685,91 @@ function CatalogueResults({
   }
 
   return (
-    <ul aria-busy={isUpdating} className={isUpdating ? "book-grid book-grid--updating" : "book-grid"}>
+    <ul
+      className={`book-grid${isUpdating ? " book-grid--updating" : ""}${browseMode === "continuous" ? " book-grid--continuous" : ""}`}
+    >
       {data.books.map((book) => (
-        <BookSummaryCard book={book} key={book.id} returnSearch={returnSearch} />
+        <BookSummaryCard
+          book={book}
+          isAppended={appendedIds.has(book.id)}
+          key={book.id}
+          onNavigate={onNavigateBook}
+          returnSearch={returnSearch}
+        />
       ))}
     </ul>
+  );
+}
+
+function ContinuousBrowsingControls({
+  announcement,
+  appendState,
+  data,
+  hasMore,
+  onLoadMore,
+  onPageSize,
+  pageSize,
+  sentinelRef,
+  state,
+}: {
+  announcement: string;
+  appendState: ContinuousAppendState;
+  data: CatalogueBooksResponse | null;
+  hasMore: boolean;
+  onLoadMore(trigger: "automatic" | "manual" | "retry"): Promise<void>;
+  onPageSize(pageSize: number): void;
+  pageSize: number;
+  sentinelRef: RefObject<HTMLDivElement | null>;
+  state: CatalogueBooksState["kind"];
+}) {
+  const isLoading = appendState.kind === "loading";
+  const isError = appendState.kind === "error";
+  const hasResults = data !== null && data.meta.totalItems > 0;
+  const isEnd = hasResults && (appendState.kind === "end" || !hasMore);
+  const visibleStatus = state === "restoring"
+    ? "Restoring your place in the catalogue…"
+    : data === null
+      ? state === "error" ? "Catalogue unavailable" : "Loading books…"
+      : data.meta.totalItems === 0
+        ? ""
+        : isEnd
+          ? `You’ve reached the end of the catalogue. ${data.books.length} books shown.`
+          : isError
+            ? "We couldn’t load more books."
+            : isLoading
+              ? "Loading more books…"
+              : `${data.books.length} of ${data.meta.totalItems} books loaded`;
+  const actionLabel = isError
+    ? "Try loading more"
+    : isLoading
+      ? "Loading more books…"
+      : "Load more books";
+
+  return (
+    <div className="continuous-browsing">
+      <div aria-hidden="true" className="continuous-sentinel" ref={sentinelRef} />
+      <div className="continuous-status" data-continuous-end={isEnd ? "" : undefined} tabIndex={isEnd ? -1 : undefined}>
+        <p>{visibleStatus}</p>
+        {hasResults && !isEnd ? (
+          <button
+            className="button button--secondary continuous-load-button"
+            disabled={isLoading}
+            onClick={() => void onLoadMore(isError ? "retry" : "manual")}
+            type="button"
+          >
+            {actionLabel}
+          </button>
+        ) : null}
+      </div>
+      <PageSizeField
+        label="Books per load"
+        onPageSize={onPageSize}
+        pageSize={pageSize}
+      />
+      <p aria-atomic="true" aria-live="polite" className="visually-hidden">
+        {announcement}
+      </p>
+    </div>
   );
 }
 
@@ -596,9 +853,6 @@ function Pagination({
   const nearbyPages = Array.from(
     new Set([1, page - 1, page, page + 1, totalPages]),
   ).filter((candidate) => candidate >= 1 && candidate <= totalPages);
-  const pageSizes = PAGE_SIZE_OPTIONS.includes(pageSize)
-    ? PAGE_SIZE_OPTIONS
-    : [...PAGE_SIZE_OPTIONS, pageSize].sort((left, right) => left - right);
 
   return (
     <div className="pagination-block">
@@ -628,12 +882,35 @@ function Pagination({
           Next
         </button>
       </nav>
-      <div className="compact-field page-size-field">
-        <label htmlFor="catalogue-page-size">Books per page</label>
-        <select id="catalogue-page-size" onChange={(event) => onPageSize(Number(event.target.value))} value={pageSize}>
-          {pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-        </select>
-      </div>
+      <PageSizeField label="Books per page" onPageSize={onPageSize} pageSize={pageSize} />
+    </div>
+  );
+}
+
+function PageSizeField({
+  label,
+  onPageSize,
+  pageSize,
+}: {
+  label: "Books per load" | "Books per page";
+  onPageSize(pageSize: number): void;
+  pageSize: number;
+}) {
+  const pageSizes = PAGE_SIZE_OPTIONS.includes(pageSize)
+    ? PAGE_SIZE_OPTIONS
+    : [...PAGE_SIZE_OPTIONS, pageSize].sort((left, right) => left - right);
+
+  return (
+    <div className="compact-field page-size-field">
+      <label htmlFor="catalogue-page-size">{label}</label>
+      <select
+        id="catalogue-page-size"
+        name="pageSize"
+        onChange={(event) => onPageSize(Number(event.target.value))}
+        value={pageSize}
+      >
+        {pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+      </select>
     </div>
   );
 }
