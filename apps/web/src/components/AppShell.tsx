@@ -23,6 +23,8 @@ export function AppShell() {
       ? "My Shelf"
       : location.pathname === "/preferences"
         ? "Favourite genres"
+        : location.pathname === "/account"
+          ? "Account"
         : "Catalogue";
   const navClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? "nav-link nav-link--active" : "nav-link";
@@ -71,6 +73,9 @@ export function AppShell() {
                   Back Room
                 </NavLink>
               ) : null}
+              <NavLink className={navClass} to="/account">
+                Account
+              </NavLink>
             </nav>
             <div className="account-actions">
               <span className="account-name">
@@ -106,6 +111,9 @@ export function AppShell() {
                     Back Room
                   </NavLink>
                 ) : null}
+                <NavLink className={navClass} to="/account">
+                  Account
+                </NavLink>
               </nav>
               <button
                 className="button button--quiet"

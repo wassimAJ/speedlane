@@ -6,7 +6,16 @@ import {
   createAdminRouter,
   type AdminStore,
 } from "./admin/routes.js";
-import { createAuthRouter, type AuthStore, type AuthUserRecord } from "./auth/routes.js";
+import {
+  createAccountRouter,
+  type AccountRouterConfig,
+  type AccountStore,
+} from "./account/routes.js";
+import {
+  createAuthRouter,
+  type AuthStore,
+  type AuthUserRecord,
+} from "./auth/routes.js";
 import { createCatalogueRouter, type CatalogueStore } from "./catalogue/routes.js";
 import { createDiscoveryRouter, type DiscoveryStore } from "./discovery/routes.js";
 import { createEngagementRouter, type EngagementStore } from "./engagement/routes.js";
@@ -34,7 +43,21 @@ export interface AppConfig {
   secureCookie: boolean;
 }
 
-export function createApp(database: AppDatabase, config: AppConfig) {
+export interface AppDependencies {
+  account?: {
+    store: AccountStore;
+    mailDelivery?: AccountRouterConfig["mailDelivery"];
+    now?: AccountRouterConfig["now"];
+    createChallenge?: AccountRouterConfig["createChallenge"];
+    schedule?: AccountRouterConfig["schedule"];
+  };
+}
+
+export function createApp(
+  database: AppDatabase,
+  config: AppConfig,
+  dependencies: AppDependencies = {},
+) {
   const app = express();
   const tokenConfig = {
     secret: config.jwtSecret,
@@ -48,6 +71,22 @@ export function createApp(database: AppDatabase, config: AppConfig) {
 
   app.use("/api", createHealthRouter(database));
   app.use("/api", createDiscoveryRouter(database));
+  if (dependencies.account !== undefined) {
+    app.use(
+      "/api",
+      createAccountRouter(dependencies.account.store, {
+        cookie: {
+          secure: config.secureCookie,
+          ttlSeconds: config.sessionTtlSeconds,
+        },
+        token: tokenConfig,
+        mailDelivery: dependencies.account.mailDelivery,
+        now: dependencies.account.now,
+        createChallenge: dependencies.account.createChallenge,
+        schedule: dependencies.account.schedule,
+      }),
+    );
+  }
   app.use(
     "/api/auth",
     createAuthRouter(database, {

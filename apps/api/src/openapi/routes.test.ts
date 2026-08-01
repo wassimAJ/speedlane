@@ -13,6 +13,9 @@ const config: AppConfig = {
 const approvedOperations = {
   "/api/health": ["get"],
   "/api/auth/login": ["post"],
+  "/api/auth/register": ["post"],
+  "/api/auth/verify-email": ["post"],
+  "/api/auth/resend-verification": ["post"],
   "/api/auth/logout": ["post"],
   "/api/auth/me": ["get"],
   "/api/discover": ["get"],
@@ -20,6 +23,7 @@ const approvedOperations = {
   "/api/books/{bookId}": ["get"],
   "/api/genres": ["get"],
   "/api/me/favourite-genres": ["get", "put"],
+  "/api/me/profile": ["get", "put"],
   "/api/me/for-your-shelves": ["get"],
   "/api/me/reading-list": ["get"],
   "/api/me/reading-list/{bookId}": ["delete", "put"],
@@ -34,8 +38,13 @@ const approvedOperations = {
 const publicOperations = new Set([
   "get /api/health",
   "post /api/auth/login",
+  "post /api/auth/register",
+  "post /api/auth/resend-verification",
   "post /api/auth/logout",
   "get /api/discover",
+]);
+const pendingVerificationOperations = new Set([
+  "post /api/auth/verify-email",
 ]);
 
 function documentationApp() {
@@ -103,6 +112,14 @@ describe("OpenAPI documentation", () => {
       name: "amazon2_session",
       description: expect.stringContaining("HTTP-only"),
     });
+    expect(
+      response.body.components.securitySchemes.pendingVerificationCookie,
+    ).toEqual({
+      type: "apiKey",
+      in: "cookie",
+      name: "amazon2_pending_verification",
+      description: expect.stringContaining("not an authenticated session"),
+    });
 
     for (const [path, methods] of Object.entries(approvedOperations)) {
       for (const method of methods) {
@@ -110,7 +127,11 @@ describe("OpenAPI documentation", () => {
         const operationKey = `${method} ${path}`;
 
         expect(operation.security).toEqual(
-          publicOperations.has(operationKey) ? [] : [{ cookieAuth: [] }],
+          publicOperations.has(operationKey)
+            ? []
+            : pendingVerificationOperations.has(operationKey)
+              ? [{ pendingVerificationCookie: [] }]
+              : [{ cookieAuth: [] }],
         );
       }
     }
@@ -128,6 +149,12 @@ describe("OpenAPI documentation", () => {
       writeOnly: true,
     });
     expect(schemas.LoginInput.properties.password).not.toHaveProperty("example");
+    expect(schemas.RegisterInput.properties.password).toMatchObject({
+      type: "string",
+      format: "password",
+      writeOnly: true,
+    });
+    expect(schemas.ProfileResponse.properties.profile).toBeDefined();
     expect(schemas.DiscoveryResponse.properties.books.maxItems).toBe(6);
     expect(
       Object.keys(
@@ -150,9 +177,29 @@ describe("OpenAPI documentation", () => {
       "readerdemo123",
       "librariandemo123",
       "scrypt$",
+      "pendingtoken",
+      "pending_token",
     ]) {
       expect(serializedDocument).not.toContain(forbiddenValue);
     }
+  });
+
+  it("documents pending-registration cookies and best-effort delivery without exposing values", async () => {
+    const response = await request(documentationApp())
+      .get("/api/openapi.json")
+      .expect(200);
+    const register = response.body.paths["/api/auth/register"].post;
+    const verify = response.body.paths["/api/auth/verify-email"].post;
+    const resend = response.body.paths["/api/auth/resend-verification"].post;
+
+    expect(register.description).toContain("up to 24 hours");
+    expect(register.description).toContain("best-effort background task");
+    expect(register.responses["202"].headers["Set-Cookie"]).toBeDefined();
+    expect(verify.description).toContain("opaque pending-verification cookie");
+    expect(verify.description).toContain("atomically commits");
+    expect(resend.description).toContain("60-second cooldown");
+    expect(resend.description).toContain("without extending the 24-hour");
+    expect(resend.responses["202"].headers["Set-Cookie"]).toBeDefined();
   });
 
   it("documents structured payload-too-large responses for non-admin JSON bodies", async () => {
@@ -161,6 +208,10 @@ describe("OpenAPI documentation", () => {
       .expect(200);
     const operations = [
       response.body.paths["/api/auth/login"].post,
+      response.body.paths["/api/auth/register"].post,
+      response.body.paths["/api/auth/verify-email"].post,
+      response.body.paths["/api/auth/resend-verification"].post,
+      response.body.paths["/api/me/profile"].put,
       response.body.paths["/api/me/favourite-genres"].put,
       response.body.paths["/api/me/reading-list/{bookId}"].put,
     ];

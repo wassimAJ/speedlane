@@ -1,12 +1,20 @@
-import type { AuthenticatedUser, Role } from "@amazon-2/contracts";
+import {
+  authenticatedUserSchema,
+  type AuthenticatedUser,
+  type Role,
+} from "@amazon-2/contracts";
 import type { Request, RequestHandler } from "express";
 
 import { HttpError } from "../http/errors.js";
 import { readSessionCookie } from "./cookie.js";
 import { verifySessionToken, type TokenConfig } from "./token.js";
 
+export interface AuthenticationUserRecord extends AuthenticatedUser {
+  emailVerifiedAt: Date | null;
+}
+
 export interface AuthenticationStore {
-  findUserById(id: string): Promise<AuthenticatedUser | null>;
+  findUserById(id: string): Promise<AuthenticationUserRecord | null>;
 }
 
 export function createAuthenticationMiddleware(
@@ -25,12 +33,12 @@ export function createAuthenticationMiddleware(
     try {
       const user = await store.findUserById(userId);
 
-      if (user === null) {
+      if (user === null || user.emailVerifiedAt === null) {
         next(new HttpError(401, "UNAUTHENTICATED", "Authentication is required."));
         return;
       }
 
-      request.authenticatedUser = user;
+      request.authenticatedUser = authenticatedUserSchema.parse(user);
       next();
     } catch (error: unknown) {
       next(error);

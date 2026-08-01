@@ -24,6 +24,7 @@ function roleProtectedApp(role: Role) {
           email: "person@amazon2.local",
           displayName: "Test Person",
           role,
+          emailVerifiedAt: new Date("2023-01-01T00:00:00.000Z"),
         };
       },
     },
@@ -42,6 +43,36 @@ function roleProtectedApp(role: Role) {
 }
 
 describe("role middleware", () => {
+  it("never authenticates an unverified persisted user", async () => {
+    const app = express();
+    const authenticate = createAuthenticationMiddleware(
+      {
+        async findUserById() {
+          return {
+            id: userId,
+            email: "person@amazon2.local",
+            displayName: "Test Person",
+            role: "READER",
+            emailVerifiedAt: null,
+          } as const;
+        },
+      },
+      tokenConfig,
+    );
+    app.get("/profile", authenticate, (_request, response) =>
+      response.sendStatus(204),
+    );
+    app.use(errorHandler);
+
+    const token = createSessionToken(userId, tokenConfig);
+    const response = await request(app)
+      .get("/profile")
+      .set("Cookie", `${SESSION_COOKIE_NAME}=${token}`)
+      .expect(401);
+
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
+  });
+
   it("rejects a reader at the server boundary", async () => {
     const token = createSessionToken(userId, tokenConfig);
     const response = await request(roleProtectedApp("READER"))

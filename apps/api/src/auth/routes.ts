@@ -22,6 +22,7 @@ import { createSessionToken, type TokenConfig } from "./token.js";
 
 export interface AuthUserRecord extends AuthenticatedUser {
   passwordHash: string;
+  emailVerifiedAt: Date | null;
 }
 
 export interface AuthStore extends AuthenticationStore {
@@ -72,6 +73,17 @@ export function createAuthRouter(store: AuthStore, config: AuthRouterConfig) {
             401,
             "INVALID_CREDENTIALS",
             "Email or password is incorrect.",
+          ),
+        );
+        return;
+      }
+
+      if (user.emailVerifiedAt === null) {
+        next(
+          new HttpError(
+            403,
+            "EMAIL_NOT_VERIFIED",
+            "Email verification is required.",
           ),
         );
         return;

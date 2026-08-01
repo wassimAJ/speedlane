@@ -80,6 +80,18 @@ export function CataloguePage() {
   const auth = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [accountNotice] = useState(() => {
+    if (
+      typeof location.state === "object" &&
+      location.state !== null &&
+      "accountNotice" in location.state &&
+      location.state.accountNotice === "Email verified. Welcome to the catalogue."
+    ) {
+      return location.state.accountNotice;
+    }
+    return null;
+  });
+  const accountNoticeLocationRef = useRef({ pathname: location.pathname, search: location.search });
   const parsedSearch = useMemo(() => parseCatalogueSearch(location.search), [location.search]);
   const query = parsedSearch.query;
   const browseMode = parsedSearch.browseMode;
@@ -125,6 +137,14 @@ export function CataloguePage() {
     }
     if (parsedSearch.wasInvalid) setQueryNotice(true);
   }, [navigate, parsedSearch.canonicalSearch, parsedSearch.wasInvalid, parsedSearch.wasNormalized]);
+
+  useEffect(() => {
+    if (!accountNotice) return;
+    navigate(
+      accountNoticeLocationRef.current,
+      { replace: true, state: null },
+    );
+  }, [accountNotice, navigate]);
 
   useEffect(() => {
     setSearchDraft(query.q ?? "");
@@ -416,6 +436,12 @@ export function CataloguePage() {
         </div>
         {readyData ? <p className="page-heading__count">{readyData.meta.totalItems} books</p> : null}
       </header>
+
+      {accountNotice ? (
+        <p className="notice notice--success account-welcome-notice" role="status">
+          {accountNotice}
+        </p>
+      ) : null}
 
       {queryNotice ? (
         <p className="notice notice--info" role="status">

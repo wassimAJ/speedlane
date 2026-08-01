@@ -6,12 +6,15 @@ import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { AppShell } from "./components/AppShell";
 import { AdminBooksPage } from "./pages/AdminBooksPage";
 import { AdminGenresPage } from "./pages/AdminGenresPage";
+import { AccountPage } from "./pages/AccountPage";
 import { BookDetailPage } from "./pages/BookDetailPage";
 import { CataloguePage } from "./pages/CataloguePage";
 import { FavouriteGenresPage } from "./pages/FavouriteGenresPage";
 import { MyShelfPage } from "./pages/MyShelfPage";
 import { PublicLandingPage } from "./pages/PublicLandingPage";
 import { SignInPage } from "./pages/SignInPage";
+import { SignUpPage } from "./pages/SignUpPage";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 
 function AuthenticatedApplication() {
   return (
@@ -27,8 +30,11 @@ export function App() {
       <Route path="/" element={<PublicLandingPage />} />
       <Route element={<AuthenticatedApplication />}>
         <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/sign-up" element={<SignUpPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
+            <Route path="/account" element={<AccountPage />} />
             <Route path="/catalogue" element={<CataloguePage />} />
             <Route path="/books/:bookId" element={<BookDetailPage />} />
             <Route path="/preferences" element={<FavouriteGenresPage />} />

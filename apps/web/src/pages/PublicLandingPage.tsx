@@ -91,9 +91,14 @@ export function PublicLandingPage() {
                   Discover the latest arrivals, then sign in to search the full collection and
                   keep a personal reading list.
                 </p>
-                <Link className="button button--primary public-sign-in" to="/sign-in">
-                  Sign in
-                </Link>
+                <div className="public-account-actions">
+                  <Link className="button button--primary" to="/sign-up">
+                    Create a reader account
+                  </Link>
+                  <Link className="button button--secondary" to="/sign-in">
+                    Sign in
+                  </Link>
+                </div>
                 <p className="public-disclaimer">
                   Amazon 2.0 is an independent library platform and is not affiliated with Amazon.
                 </p>

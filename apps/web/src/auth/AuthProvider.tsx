@@ -15,6 +15,7 @@ import {
 } from "react";
 
 import { ApiResponseError, requestEmpty, requestJson } from "../api";
+import { clearPendingRegistrationHint } from "../account/pendingVerification";
 
 type AuthState =
   | { status: "checking" }
@@ -24,15 +25,27 @@ type AuthState =
 
 type SignInResult =
   | { ok: true }
-  | { ok: false; kind: "invalid-input" | "invalid-credentials" | "unexpected"; message: string };
+  | {
+      ok: false;
+      kind: "email-not-verified";
+      email: string;
+      message: string;
+    }
+  | {
+      ok: false;
+      kind: "invalid-input" | "invalid-credentials" | "unexpected";
+      message: string;
+    };
 
 interface AuthContextValue {
   state: AuthState;
   notice: string | null;
+  authenticate(user: AuthenticatedUser): void;
   clearNotice(): void;
   retrySession(): void;
   signIn(input: LoginInput): Promise<SignInResult>;
   signOut(): Promise<void>;
+  updateAuthenticatedUser(user: AuthenticatedUser): void;
   expireSession(): void;
 }
 
@@ -93,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsedInput.data),
       });
+      clearPendingRegistrationHint();
       setNotice(null);
       setState({ status: "authenticated", user: session.user });
       return { ok: true };
@@ -108,6 +122,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
+      if (
+        error instanceof ApiResponseError &&
+        error.apiError?.error.code === "EMAIL_NOT_VERIFIED"
+      ) {
+        return {
+          ok: false,
+          kind: "email-not-verified",
+          email: parsedInput.data.email,
+          message: "Your account still needs email verification.",
+        };
+      }
+
       return {
         ok: false,
         kind: "unexpected",
@@ -118,8 +144,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await requestEmpty("/api/auth/logout", { method: "POST" });
+    clearPendingRegistrationHint();
     setNotice(null);
     setState({ status: "anonymous" });
+  }, []);
+
+  const authenticate = useCallback((user: AuthenticatedUser) => {
+    setNotice(null);
+    setState({ status: "authenticated", user });
+  }, []);
+
+  const updateAuthenticatedUser = useCallback((user: AuthenticatedUser) => {
+    setState((current) => current.status === "authenticated"
+      ? { status: "authenticated", user }
+      : current);
   }, []);
 
   const expireSession = useCallback(() => {
@@ -133,13 +171,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       state,
       notice,
+      authenticate,
       clearNotice,
       retrySession,
       signIn,
       signOut,
+      updateAuthenticatedUser,
       expireSession,
     }),
-    [clearNotice, expireSession, notice, retrySession, signIn, signOut, state],
+    [
+      authenticate,
+      clearNotice,
+      expireSession,
+      notice,
+      retrySession,
+      signIn,
+      signOut,
+      state,
+      updateAuthenticatedUser,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

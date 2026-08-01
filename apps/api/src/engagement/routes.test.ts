@@ -8,7 +8,6 @@ import {
   readingListEntryResponseSchema,
   readingListInvalidInputErrorResponseSchema,
   readingListResponseSchema,
-  type AuthenticatedUser,
   type CatalogueBookSummary,
   type GenreSummary,
   type ReadingListEntry,
@@ -20,6 +19,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createApp, type AppConfig, type AppDatabase } from "../app.js";
 import { SESSION_COOKIE_NAME } from "../auth/cookie.js";
+import type { AuthenticationUserRecord } from "../auth/middleware.js";
 import { createSessionToken } from "../auth/token.js";
 
 const config: AppConfig = {
@@ -69,7 +69,7 @@ const unavailableEntry: ReadingListEntry = {
   },
 };
 
-function authenticatedUser(role: Role): AuthenticatedUser {
+function authenticatedUser(role: Role): AuthenticationUserRecord {
   return {
     id:
       role === "LIBRARIAN"
@@ -81,6 +81,7 @@ function authenticatedUser(role: Role): AuthenticatedUser {
         : "reader@amazon2.local",
     displayName: role === "LIBRARIAN" ? "Morgan Librarian" : "Riley Reader",
     role,
+    emailVerifiedAt: new Date("2023-01-01T00:00:00.000Z"),
   };
 }
 

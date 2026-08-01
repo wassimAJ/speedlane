@@ -30,6 +30,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET to at least 32 random characters in .env}
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-900}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
     ports:
       - "${API_PORT:-3000}:3000"
     depends_on:

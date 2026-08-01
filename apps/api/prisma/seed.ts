@@ -16,6 +16,7 @@ const demoUsers = [
     password: "ReaderDemo123!",
     salt: "5ca7371d2bf88a7ba0b246d2fd6147b1",
     role: UserRole.READER,
+    emailVerifiedAt: new Date("2023-01-01T12:00:00.000Z"),
   },
   {
     id: "00000000-0000-4000-8000-000000000002",
@@ -24,6 +25,7 @@ const demoUsers = [
     password: "LibrarianDemo123!",
     salt: "1e3cc494f174fd479912f7a5bb6fed90",
     role: UserRole.LIBRARIAN,
+    emailVerifiedAt: new Date("2023-01-02T12:00:00.000Z"),
   },
 ] as const;
 
@@ -213,6 +215,7 @@ async function main() {
       displayName: user.displayName,
       passwordHash: passwordHash(user.password, user.salt),
       role: user.role,
+      emailVerifiedAt: user.emailVerifiedAt,
     };
 
     await prisma.user.upsert({

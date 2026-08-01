@@ -224,12 +224,15 @@ The shell has three landmarks in order: skip link, header/navigation, and
   wordmark in one labelled home/catalogue link. It must not use a curved arrow,
   cart, retail bag, or marketplace motif.
 - Desktop order: mark and wordmark, primary navigation (`Catalogue`, `My Shelf`,
-  and librarian-only `Back Room`), flexible spacer, user menu.
+  and librarian-only `Back Room`), flexible spacer, then an account cluster with
+  `Account` and `Sign out`. Both Readers and Librarians see `Account`.
 - The current destination uses both an underline/block marker and
   `aria-current="page"`; colour alone is insufficient.
 - At 320–767px, show the compact mark/wordmark lockup, current destination, and
   one labelled `Menu` button. The opened menu is a disclosure or modal sheet
-  with all destinations and `Sign out` as text, not an icon-only action.
+  with all destinations, `Account`, and `Sign out` as text, not icon-only
+  actions. Place `Account` after role-specific destinations and before
+  `Sign out`.
 - Header actions remain at least 44px high. Do not hide core navigation behind
   hover behavior.
 
@@ -244,6 +247,331 @@ copy. For the catalogue:
 
 Keep controls out of the `h1` row at narrow widths. On desktop, a quiet result
 count may align to the lower edge of the page header.
+
+## Registration, verification, and account
+
+These screens extend Library Card Chaos without turning account work into a
+generic software settings flow. Public entry is a restrained paper form; the
+authenticated account page reads like a library-card record. Registration is
+for Readers only. Do not render, submit, or infer a role field, including as a
+hidden input or query parameter.
+
+### Public account shell and entry points
+
+- The public landing keeps exactly six discovery previews and adds two clearly
+  labelled account actions: primary `Create a reader account` and secondary
+  `Sign in`. These actions must remain visible at 320px without displacing or
+  changing the six-preview discovery contract.
+- Sign-up, verification, and sign-in share a single-column paper-sheet shell.
+  Use the 40px Offset Index mark, visible `Amazon 2.0` wordmark, and a content
+  width no greater than `36rem`. Below 480px, the sheet is full-width with a
+  `16px` page gutter, no floating card shadow, and no decorative side panel.
+- Show the independence statement in the public shell footer: `Amazon 2.0 is an
+  independent library platform and is not affiliated with Amazon.`
+- The sign-in footer reads `New to Amazon 2.0? Create a reader account.` The
+  sign-up footer reads `Already have an account? Sign in.` Do not publish demo
+  credentials in this shell.
+- Page titles and announcements use the screen purpose, never the entered email
+  address. Do not put an email address in a URL.
+
+### Reader sign-up
+
+Use this production copy exactly:
+
+- Eyebrow: `NEW READER ACCOUNT`
+- Heading: `Create your library account`
+- Support: `Set up your Reader profile, then verify your email to enter the
+  catalogue.`
+- Role note: `New accounts have Reader access.`
+- Labels: `Display name`, `Email address`, `Password`
+- Password help: `Use 12–128 characters with at least one uppercase letter, one
+  lowercase letter, and one number.`
+- Primary action: `Create reader account`
+
+The form contract is:
+
+- `Display name` uses `autocomplete="name"`, trims surrounding whitespace, and
+  has a maximum length of 120 characters.
+- `Email address` uses `type="email"`, `autocomplete="email"`, and a maximum
+  length of 320 characters. Normalization belongs to the shared contract; do
+  not imply that case creates a different account.
+- `Password` uses `type="password"`, `autocomplete="new-password"`, and a
+  maximum length of 128 characters. Associate the visible password help with
+  the input through `aria-describedby`. Do not add an uncontracted symbol rule
+  or a decorative strength score.
+- Preserve entered values after a rejected request. While submitting, disable
+  duplicate submission, keep the primary action width stable, and show
+  `Creating account…`.
+- For multiple invalid fields, place a focused error summary after the heading.
+  Its links move focus to the corresponding fields. Per-field help comes before
+  the field error in `aria-describedby`; do not announce the same error from
+  multiple live regions.
+
+On an accepted registration response, move directly to verification. The
+server's 24-hour HttpOnly pending-registration state remains authoritative and
+is not the authenticated session. For same-browser recovery, store one minimal
+namespaced `localStorage` hint shaped as `{ email, startedAt }`, containing only
+the normalized email and local sign-up start time. Do not store the password,
+display name, numeric code, cookie value, or any server credential. Expire the
+hint after 24 hours and never serialize it into a URL.
+
+Generic dispatch language is deliberate: never confirm that an address is
+registered, that a pending record is valid, or that an email was sent. Use:
+
+- Dispatch status: `If a code can be delivered for this address, use the newest
+  one. It expires in 10 minutes.`
+- Rate limit: `Too many account requests. Wait before trying again.`
+- Service failure: `Account creation is unavailable right now. Try again later.`
+
+### Six-digit email verification
+
+The verification screen uses:
+
+- Eyebrow: `EMAIL VERIFICATION`
+- Heading: `Verify your email`
+- Support: `Enter the 6-digit code for {maskedEmail}. If a code is available for
+  this address, use the newest one.`
+- Field label: `6-digit verification code`
+- Help: `Enter all 6 numbers. Codes expire after 10 minutes.`
+- Primary action: `Verify email`
+- Secondary action: `Resend code`
+
+`{maskedEmail}` is a partially masked value such as `r•••••@example.com`, not
+the full address hidden visually while remaining in the DOM. Render the code
+and resend controls only when the frontend has a matching local sign-up hint
+less than 24 hours old. This local hint permits the recovery UI; it does not
+prove that server state is valid. Do not render a free-form email lookup or an
+email-only resend path on this screen.
+
+Use one real text input, not six independently focusable boxes. It must use
+`type="text"`, `inputmode="numeric"`, `autocomplete="one-time-code"`,
+`pattern="[0-9]*"`, and both minimum and maximum lengths of 6. Store the value
+as a string so a leading zero survives. Let users paste a whole code. Whitespace
+or visual hyphen separators may be removed only when the result is exactly six
+digits; reject other characters rather than silently rewriting them. A visual
+six-cell treatment is allowed only when it preserves this single-input DOM and
+an obvious focus indicator.
+
+The 10-minute expiry display is advisory; the server remains authoritative and
+also enforces invalidation after five unsuccessful attempts. Use `role="timer"`
+with live announcements off. Do not announce every second. Announce once when
+one minute remains and once when the local timer expires. The frontend may name
+expiry only when its own timer actually elapsed in this tab. A server rejection
+does not reveal whether the challenge was unknown, incorrect, expired, already
+used, superseded, or exhausted by attempts.
+
+After a registration or resend request, enforce the contract's 60-second resend
+cooldown. Keep the resend control focusable with `aria-disabled="true"` rather
+than removing it. Its adjacent status may read `Resend available in 42 seconds`;
+the changing timer is not a live region. Announce once when cooldown begins and
+once with `You can request a new code.` when it ends. A successful resend uses
+the same generic dispatch status as registration, clears the code input, and
+restarts the 10-minute code timer and 60-second cooldown. It never extends or
+rewrites the local 24-hour sign-up start time. An email-provider failure does
+not clear a fresh local hint or send the reader back to sign-up: keep the
+verification screen and resend recovery available.
+
+Map verification states to this copy and focus behavior:
+
+| State | Message | Focus/action |
+| --- | --- | --- |
+| Incomplete client value | `Enter all 6 numbers.` | Focus the code input. |
+| Local timer elapsed in this tab | `That code has expired. Request a new code.` | Focus `Resend code`. |
+| Server `VERIFICATION_CODE_INVALID` | `That code is incorrect, expired, or no longer usable. Request a new code if needed.` | Clear, then focus the code input; keep `Resend code` immediately available in the action order. |
+| Verification rate limited | `Too many verification requests. Wait before trying again.` | Keep the current action context and expose any server retry timing if supplied. |
+| Resend rate limited | `Resend is temporarily unavailable. Wait before trying again.` | Keep focus on `Resend code`. |
+| Delivery unavailable | `Email delivery is unavailable right now. Try again later.` | Keep focus on the action that failed. |
+
+Do not infer a rejection reason or invent, estimate, or announce a
+remaining-attempt count. In particular, the frontend must not claim that the
+server identified expiry or the five-attempt limit. The adjacent code error may
+use `role="alert"` when it first appears; the same message must not also be in an
+error summary or another assertive region. Use one separate polite status
+region for dispatch, progress, and cooldown-availability notices.
+
+If sign-in returns the explicit `EMAIL_NOT_VERIFIED` error, do not create an
+authenticated session. Compare the submitted normalized email with the local
+sign-up hint:
+
+- When they match and the local hint is less than 24 hours old, move to the
+  verification screen and introduce it with `Your account still needs email
+  verification.` Code verification and resend remain available, although the
+  frontend still makes no claim about server-side validity.
+- When the hint is absent, malformed, 24 hours old, or belongs to a different
+  normalized email, do not offer verification or resend. Replace the route
+  with Reader sign-up, safely prefill the submitted email through navigation
+  state rather than the URL, and show `Start sign-up again to continue email
+  verification.` followed by `Enter your display name and password again. Your
+  email address is already filled in.` The email field remains editable.
+
+Generic invalid credentials remain on sign-in and must never be translated
+into verification, because doing so would reveal account state.
+
+A successful verification response establishes the normal cookie-backed
+session. Hydrate the shared authentication state and replace history with the
+catalogue route. The catalogue announces `Email verified. Welcome to the
+catalogue.` once in its polite page-status region. Do not add a timed success
+interstitial. Clear the code value, timers, and minimal local sign-up hint after
+success, sign-out, or an intentional return to registration; do not claim that
+client cleanup controls any server state.
+
+### Secure verification recovery
+
+The browser can know only that this user recently started sign-up locally. It
+cannot inspect or validate the server's HttpOnly pending-registration state.
+Use the local hint solely to choose between showing code recovery and asking
+the reader to restart sign-up. Public copy never mentions tokens, secrets,
+cookies, sessions, credential binding, challenge identifiers, or whether
+server recovery state exists.
+
+Treat a local hint as fresh only when it has a valid normalized email, a finite
+start timestamp no later than the current clock, and an age strictly below 24
+hours. Check it on route entry, when the document becomes visible again, and
+immediately before verify or resend. Do not refresh its age after login,
+verification attempts, code expiry, resend, or delivery failure.
+
+If a verification route is opened without a matching fresh hint, or the hint
+reaches 24 hours while the screen is open, remove the code and resend controls,
+clear the hint and code value, and show this recovery state:
+
+- Eyebrow: `ACCOUNT SETUP`
+- Heading: `Start sign-up again`
+- Body: `This browser no longer has a recent sign-up to continue. Enter your
+  details again to request a new code.`
+- Primary action: `Start sign-up again`
+- Secondary action: `Back to sign in`
+
+Carry the known email to sign-up only through ephemeral navigation state and
+prefill it there; never include it in the recovery URL. The primary recovery
+action clears stale local state before navigation. Sign-up creates a new
+Reader-only pending setup from the submitted display name, email, and password.
+It must not try to recover or merge unknown staged credentials by email alone.
+
+On initial navigation, focus the destination `h1` with `tabIndex="-1"`. When a
+fresh matching hint routes an unverified sign-in into verification, the next
+Tab stop is the code input. When sign-in routes to restarted sign-up, focus the
+`Create your library account` heading; the prefilled email is announced only
+when its labelled field receives focus. The restart explanation is ordinary
+visible text, not an assertive alert.
+
+If the 24-hour boundary is reached while focus is inside verification, replace
+the form and move focus to the `Start sign-up again` heading so focus is not
+lost with the removed input. Announce the recovery body once through the same
+polite, atomic page-status region. Do not expose a 24-hour ticking countdown or
+announce storage cleanup. Verification errors and resend results continue to
+use the generic, non-enumerating copy above even when server-side state is
+missing or invalid.
+
+At 320px, recovery copy, masked-email support, timers, and actions stay in one
+DOM-ordered column. `Start sign-up again`, `Back to sign in`, `Verify email`,
+and `Resend code` each retain a 44px target and full visible label. Keyboard
+users can reach the quiet restart option from a fresh verification screen
+without passing through a hidden or disabled control; provide it after resend
+as `Start sign-up again` and do not make it destructive-looking.
+
+### Authenticated account page
+
+The account route is available to both Readers and Librarians through the
+header's `Account` destination. It requires the existing authenticated shell
+and uses:
+
+- Eyebrow: `YOUR LIBRARY CARD`
+- Heading: `Account`
+- Support: `Review your membership details and update how your name appears.`
+
+Use one column at 320–767px and a two-column record layout from 768px: editable
+display name first, membership details second. The page stays within `60rem`.
+Separate the regions with the system's dark rules and spacing, not generic
+rounded cards.
+
+The membership details are a semantic description list, not disabled inputs:
+
+- `Email` — the full authenticated account email.
+- `Email verification` — `Verified on {date}`.
+- `Member since` — `{date}`.
+- `Access role` — `Reader` or `Librarian`.
+
+Render dates in the user's locale with a stable long-date presentation and a
+machine-readable `<time datetime>`. Do not display the internal account ID. The
+email and role are read-only facts: do not add edit affordances, disabled form
+controls, or misleading pencil icons.
+
+The only editable account value is `Display name`. Use `autocomplete="name"`,
+maximum length 120, and these exact states:
+
+- Primary action: `Save display name`; disable it while the trimmed value is
+  unchanged or invalid.
+- Busy action: `Saving…`; prevent duplicate submissions without clearing the
+  field.
+- Success status: `Display name updated.`
+- Validation error: `Enter a display name.`
+- Request failure: `We couldn’t update your display name. Try again.`
+- Page loading: `Loading your account…`
+- Page failure: `We couldn’t load your account.` with `Try again`.
+
+Update the shared authenticated display name after save without replacing the
+route or stealing focus. Announce save success in the page's polite status
+region. The update request contains only `displayName`; never submit email,
+role, verification timestamps, or creation timestamps. Do not add password
+reset, password change, email change, OAuth, account deletion, or librarian
+onboarding controls.
+
+### Account motion, responsive behavior, and accessibility
+
+- Public account routes switch instantly; do not animate between sign-up,
+  verification, and sign-in. Existing 120–180ms focus/press feedback is enough.
+- At 320px, labels, help, errors, timers, and actions stack in DOM order without
+  horizontal scrolling. From 480px, secondary actions may share a row only if
+  focus and reading order remain primary then secondary.
+- Every action has at least a 44px target. Under 200% zoom, collapse multi-column
+  profile layout rather than clipping membership data.
+- Loading and submitting states set `aria-busy` on the affected region, not the
+  whole document. Preserve a visible focus indicator in forced-colours mode.
+- Respect `prefers-reduced-motion`; no account flow depends on motion, colour,
+  elapsed animation, or a rapidly updating announcement.
+
+### Ordered implementation checklist
+
+1. Add the public account shell and the landing's `Create a reader account` and
+   `Sign in` actions without changing the six discovery previews.
+2. Build shared label, help, field-error, summary, status, and submit-state
+   primitives with deterministic IDs and focus behavior.
+3. Implement Reader sign-up from the shared contract; verify the outgoing body
+   has only `displayName`, `email`, and `password`.
+4. Add the exact `{ email, startedAt }` browser-local sign-up hint, strict
+   matching and 24-hour validation, masked rendering, cleanup rules, and no
+   email in URLs or document titles.
+5. Implement the single-input code, paste/autofill behavior, expiry indicator,
+   resend cooldown, provider-failure recovery, generic dispatch copy, stale
+   recovery screen, and all server error mappings.
+6. Route explicit unverified sign-in responses with a fresh matching hint into
+   verification; otherwise replace with Reader sign-up and safely prefill the
+   email. Keep invalid-credential handling non-enumerating.
+7. On verification success, hydrate the cookie session, replace with catalogue,
+   clear pending state, and announce the welcome status once.
+8. Add `Account` to Reader and Librarian desktop/mobile navigation and implement
+   the authenticated read-only record plus display-name-only update.
+9. Add automated accessibility/state tests, then complete keyboard, zoom,
+   screen-reader, autofill, paste, forced-colours, and reduced-motion review.
+
+### Acceptance matrix
+
+| Area | Automated acceptance | Manual acceptance |
+| --- | --- | --- |
+| Public discovery and entry | Landing still renders exactly six previews and both named account actions. | Actions remain obvious at 320, 480, and 768px without retail imagery or false affiliation. |
+| Registration payload | Schema-valid data submits exactly three allowed keys; role/privileged keys and weak passwords are rejected. No authenticated session appears before verification, and the local hint contains only normalized email and start time. | Browser autofill, error-summary links, preserved values, and busy prevention work by keyboard. |
+| Dispatch privacy | Registration and resend use generic dispatch copy for all account-existence outcomes. | No full email leaks into URL, title, announcement, or verification display. |
+| Verification input | Leading-zero, paste, one-time-code autofill, invalid-character, and six-digit cases are covered. Fake timers cover local-tab expiry; every server `VERIFICATION_CODE_INVALID` fixture, including expired and attempt-exhausted challenges, maps to the same generic message. | A single Tab stop and visible focus work with keyboard, VoiceOver, and 200% zoom. |
+| Resend timing | Fake-timer tests cover the 60-second disabled interval, one availability announcement, and 10-minute code-timer restart without extending the 24-hour local age. A provider failure preserves fresh recovery controls. | Countdown does not chatter through a screen reader or permit duplicate activation. |
+| Recovery eligibility | Fresh matching hints render code/resend. Missing, malformed, future-dated, mismatched, or 24-hour-old hints clear and render the exact restart state; direct verification navigation cannot expose email-only resend. | Refresh, a second same-browser tab, clock-boundary replacement, and both restart actions preserve logical focus and generic copy. |
+| Sign-in handoff | `EMAIL_NOT_VERIFIED` plus a fresh matching hint routes to verification; without one it replaces with Reader sign-up and prefills email through navigation state. Invalid credentials remain on sign-in with no session. | Back/refresh behavior never turns a submitted email alone into resend capability, and prefill remains labelled and editable. |
+| Verified session | Successful verification hydrates auth, replaces history with catalogue, clears pending state, and announces success once. | Browser back does not return to a usable verification form. |
+| Account authorization | Both Reader and Librarian can load account; unauthenticated access follows existing auth behavior. Update payload is only `displayName`. | Email, role, and dates read as facts; neither role sees editing or out-of-scope account controls. |
+| Navigation and layout | Desktop/mobile nav includes `Account` for both roles with correct current-page state. | DOM, focus, and visual order hold at 320, 768, and 1024px, reduced motion, and forced colours. |
+
+Frontend acceptance also requires slow-network and service-failure checks. The
+page must retain user work where safe, surface one actionable error, and never
+convert a failure into account-enumerating copy.
 
 ## Authenticated catalogue composition
 
@@ -890,8 +1218,8 @@ needs to understand an authorization failure.
 The voice is warm, direct, and lightly bookish. Library metaphors may make an
 empty state memorable, but labels and recovery actions stay literal.
 
-- Prefer `Search`, `Apply filters`, `Reset all`, `Try again`, `Sign in`, and
-  `Back to catalogue` over clever action labels.
+- Prefer `Search`, `Apply filters`, `Reset all`, `Try again`, `Sign in`,
+  `Create a reader account`, and `Back to catalogue` over clever action labels.
 - Say `book`, `genre`, `My Shelf`, and `Back Room` consistently.
 - Use `Archive` and `Restore` for librarian records and `Remove` for a reader's
   shelf relationship. Never use `Delete`.
@@ -901,8 +1229,8 @@ empty state memorable, but labels and recovery actions stay literal.
   context; product-facing pages speak as a complete library platform.
 - The required visible independence statement is: `Amazon 2.0 is an independent
   library platform and is not affiliated with Amazon.` Keep the full sentence
-  on the public landing page and sign-in sheet; do not reduce it to an icon,
-  tooltip, footer link, or legal abbreviation.
+  on the public landing page and public account shell; do not reduce it to an
+  icon, tooltip, footer link, or legal abbreviation.
 
 ### Approved presentation copy
 
@@ -915,16 +1243,19 @@ Use these exact replacements in the web app:
 | Public hero disclaimer | `Amazon 2.0 is an independent library platform and is not affiliated with Amazon.` |
 | Public closing eyebrow | `MEMBER ACCESS` |
 | Public closing heading | `The rest of the collection is inside.` |
-| Public closing body | `Sign in with your library card to browse, filter, and build your shelf.` |
-| Public closing action | `Sign in to browse` |
+| Public closing body | `Create a Reader account or sign in to browse, filter, and build your shelf.` |
+| Public closing primary action | `Create a reader account` |
+| Public closing secondary action | `Sign in` |
 | Sign-in lede | `Sign in to browse the full active collection.` |
+| Sign-in account link | `New to Amazon 2.0? Create a reader account.` |
+| Sign-up account link | `Already have an account? Sign in.` |
 | Sign-in independence note | `Amazon 2.0 is an independent library platform and is not affiliated with Amazon.` |
 
-The public hero lede and `Sign in` action already communicate the correct
-access model and may remain. Remove the reader-credential panel from the web
-app entirely: do not display, prefill, hint, or copy seeded email addresses or
-passwords on the landing or sign-in surfaces. Seed values belong only in test
-fixtures and technical README documentation where setup requires them.
+The landing must make both account entry paths discoverable while preserving
+exactly six public book previews. Remove the reader-credential panel from the
+web app entirely: do not display, prefill, hint, or copy seeded email addresses
+or passwords on the landing or public account surfaces. Seed values belong only
+in test fixtures and technical README documentation where setup requires them.
 
 Remove novelty presentation that makes the platform look like a staged sample:
 
@@ -941,10 +1272,10 @@ remove functional information: retain signed-in `reader`/`librarian` role
 labels, Active/Archived tabs, reading statuses, loading/error notices, and valid
 production empty states.
 
-There is no public account creation. Do not add or imply `Create account`,
-`Register`, `Join`, `Get started`, `Claim your card`, `Your card is waiting`, or
-`Don't have an account?`. Public calls to action use `Sign in` or `Sign in to
-browse`. Do not add registration-shaped controls that route back to sign-in.
+Public account creation is a Reader-only flow. Use `Create a reader account`,
+not ambiguous `Register`, `Join`, `Get started`, `Claim your card`, or `Your
+card is waiting` copy. Never offer `Register as librarian`, a role selector, or
+an invitation to choose elevated access.
 
 ## Polish milestone implementation order
 
@@ -985,44 +1316,49 @@ browse`. Do not add registration-shaped controls that route back to sign-in.
    librarian-only Back Room visibility, responsive menu, current-route marker,
    main landmark, sign-out feedback, session-expired handling, and 320px
    keyboard behavior.
-3. **Keep catalogue query state reliable.** Parse and normalize URL state with
+3. **Implement account entry before dependent screens.** Preserve six public
+   previews while exposing both account actions; then build Reader-only
+   registration, non-enumerating verification/resend, explicit unverified
+   sign-in handoff, verified-session catalogue entry, and the Reader/Librarian
+   display-name-only account record in the dedicated order above.
+4. **Keep catalogue query state reliable.** Parse and normalize URL state with
    the shared Zod contract plus the frontend-only browse mode; preserve
    submit/reset, back/forward restoration, page-reset rules, and safe
    malformed-query handling without forwarding UI state to the API.
-4. **Reuse the established controls.** Use the same buttons, field rows,
+5. **Reuse the established controls.** Use the same buttons, field rows,
    labelled inputs/selects, reserved support trays, field errors, notices,
    drawer/dialog behavior, result status, and focus treatment across reader and
    librarian surfaces.
-5. **Keep active taxonomy dynamic.** Catalogue filters, favourite choices, and
+6. **Keep active taxonomy dynamic.** Catalogue filters, favourite choices, and
    book forms consume active genres from the API; no seeded genre is hard-coded.
-6. **Preserve complete catalogue states.** Retain static skeletons, busy
+7. **Preserve complete catalogue states.** Retain static skeletons, busy
    transition, loaded summary, no-match, empty-catalogue, retryable error, 401,
    unexpected-error, append, retry-append, restoration, and end treatments.
-7. **Maintain one book-summary language.** Use deterministic 2:3 covers and the
+8. **Maintain one book-summary language.** Use deterministic 2:3 covers and the
    title/author/year/rating/genre hierarchy in ordinary and personalised
    results; never expose `coverSeed` or internal fields as copy.
-8. **Regression-test responsive catalogue behavior.** Cover the base horizontal
+9. **Regression-test responsive catalogue behavior.** Cover the base horizontal
    result row, wider vertical grids, persistent desktop rail, mobile filter
    drawer, Pages default, selectable Continuous mode, keyboard Load more,
    near-end observation, batch size capped at 48, focus/restoration, deduping,
    reduced motion, and browser history.
-9. **Protect detail and shelf integration.** Preserve the catalogue return
+10. **Protect detail and shelf integration.** Preserve the catalogue return
    query, reader-safe archived/unknown 404, add/update/remove shelf controls,
    mutation feedback, and publication-facts definition list.
-10. **Protect favourite genre ordering.** Keep the five-genre cap, active-only
+11. **Protect favourite genre ordering.** Keep the five-genre cap, active-only
     choices, explicit move controls, unchanged-save state, ordered payload, and
     error recovery without losing the working selection.
-11. **Keep personalisation separate.** Omit `For your shelves` with no
+12. **Keep personalisation separate.** Omit `For your shelves` with no
     favourites; otherwise preserve its at-most-six server order and keep its
     loading/error/empty states independent from ordinary catalogue results.
-12. **Protect My Shelf history.** Group visible entries by reading state,
+13. **Protect My Shelf history.** Group visible entries by reading state,
     update available entries, soft-remove on request, and keep archived entries
     labelled and removable while their status controls remain disabled.
-13. **Protect librarian management.** Keep role gating, Books/Genres and
+14. **Protect librarian management.** Keep role gating, Books/Genres and
     Active/Archived navigation, complete forms and validation summaries,
     focusable scrolling tables, reversible archive dialogs, restoration, and
     blocking genre-archive explanations.
-14. **Run accessibility and responsive regression checks.** Cover 320, 480,
+15. **Run accessibility and responsive regression checks.** Cover 320, 480,
     768, 1024, and 1280px; keyboard-only operation; screen-reader names/status;
     200% and 400% zoom; forced colours; reduced motion; slow/failing requests;
     long content; append/end/retry states; session expiry; reader-safe archive
@@ -1032,6 +1368,27 @@ browse`. Do not add registration-shaped controls that route back to sign-in.
 
 ## Design risks to keep under regression
 
+- Registration and resend copy can accidentally expose whether an account
+  exists or whether delivery occurred. Keep generic dispatch text identical
+  across existence outcomes and test both response paths.
+- A segmented-looking code field can regress into six inaccessible inputs or
+  coerce the value to a number, breaking paste, one-time-code autofill, and
+  leading zeroes. Test the actual DOM and submitted string, not only its visual
+  treatment.
+- Client expiry and cooldown clocks can drift from server truth or create
+  second-by-second screen-reader chatter. Name expiry only when the current
+  tab's local timer elapsed; map every server-invalid challenge to the generic
+  message and restrict announcements to the defined milestones.
+- The browser-local sign-up hint is UX evidence, not proof of server state.
+  Store only normalized email and start time, reject malformed/future/stale
+  values, never extend its 24-hour age on resend, and keep every server response
+  generic if the HttpOnly binding is missing or invalid.
+- An unverified sign-in email without a fresh matching hint must never unlock
+  email-only resend; doing so could attach recovery to credentials staged by a
+  different browser. Prefill Reader sign-up through navigation state instead,
+  and keep the email editable and out of the URL.
+- Localized account dates and long display names can destabilize the two-column
+  record layout. Test real locale formats and collapse before content clips.
 - Offset-based catalogue pages can shift if books are created or archived
   between append requests. ID deduplication prevents repeats but cannot prove
   there are no gaps without a cursor/snapshot API, which this milestone does not

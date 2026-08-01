@@ -40,6 +40,7 @@ function testUser(role: Role): AuthUserRecord {
     email: librarian ? "librarian@amazon2.local" : "reader@amazon2.local",
     displayName: librarian ? "Morgan Librarian" : "Riley Reader",
     role,
+    emailVerifiedAt: new Date("2023-01-01T00:00:00.000Z"),
     passwordHash: encodedPassword(
       librarian ? "LibrarianDemo123!" : "ReaderDemo123!",
       librarian ? "1e3cc494f174fd479912f7a5bb6fed90" : "5ca7371d2bf88a7ba0b246d2fd6147b1",
@@ -67,6 +68,7 @@ function testDatabase(overrides: Partial<AppDatabase> = {}): AppDatabase {
         email: user.email,
         displayName: user.displayName,
         role: user.role,
+        emailVerifiedAt: user.emailVerifiedAt,
       };
     }),
     findCatalogueBooks: vi.fn().mockResolvedValue({ books: [], totalItems: 0 }),
@@ -239,6 +241,35 @@ describe("authentication", () => {
       },
     });
     expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("requires verification only after the correct password is validated", async () => {
+    const unverified = {
+      ...testUser("READER"),
+      emailVerifiedAt: null,
+    };
+    const app = createApp(
+      testDatabase({
+        findUserByEmail: vi.fn().mockResolvedValue(unverified),
+      }),
+      config,
+    );
+
+    const response = await request(app)
+      .post("/api/auth/login")
+      .send({ email: unverified.email, password: "ReaderDemo123!" })
+      .expect(403);
+
+    expect(apiErrorResponseSchema.parse(response.body)).toEqual({
+      error: {
+        code: "EMAIL_NOT_VERIFIED",
+        message: "Email verification is required.",
+      },
+    });
+    await request(app)
+      .post("/api/auth/login")
+      .send({ email: unverified.email, password: "wrong-password" })
+      .expect(401);
   });
 
   it("rejects invalid input and never accepts a client-selected role", async () => {

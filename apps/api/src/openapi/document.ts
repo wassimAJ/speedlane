@@ -30,7 +30,15 @@ import {
   readingListEntryResponseSchema,
   readingListResponseSchema,
   readingListUpdateInputSchema,
+  profileResponseSchema,
+  registerInputSchema,
+  registerResponseSchema,
+  resendVerificationCodeInputSchema,
+  resendVerificationCodeResponseSchema,
   sessionResponseSchema,
+  updateProfileInputSchema,
+  verifyEmailInputSchema,
+  verifyEmailResponseSchema,
 } from "@amazon-2/contracts";
 import {
   extendZodWithOpenApi,
@@ -54,9 +62,18 @@ const privateCacheHeaders = {
 const setCookieHeader = {
   "Set-Cookie": {
     description:
-      "Sets or clears the HTTP-only amazon2_session cookie. The cookie value is intentionally omitted from this documentation.",
+      "Sets or clears HTTP-only session or pending-verification cookies. Cookie values are intentionally omitted from this documentation.",
     schema: {
       type: "string" as const,
+    },
+  },
+};
+const retryAfterHeader = {
+  "Retry-After": {
+    description: "Seconds until this rate-limit window permits another request.",
+    schema: {
+      type: "integer" as const,
+      minimum: 1,
     },
   },
 };
@@ -102,6 +119,26 @@ function createOpenApiDocument() {
     apiError: registry.register("ApiError", apiErrorResponseSchema),
     loginInput: registry.register("LoginInput", loginInputSchema),
     sessionResponse: registry.register("SessionResponse", sessionResponseSchema),
+    registerInput: registry.register("RegisterInput", registerInputSchema),
+    registerResponse: registry.register("RegisterResponse", registerResponseSchema),
+    verifyEmailInput: registry.register("VerifyEmailInput", verifyEmailInputSchema),
+    verifyEmailResponse: registry.register(
+      "VerifyEmailResponse",
+      verifyEmailResponseSchema,
+    ),
+    resendVerificationInput: registry.register(
+      "ResendVerificationInput",
+      resendVerificationCodeInputSchema,
+    ),
+    resendVerificationResponse: registry.register(
+      "ResendVerificationResponse",
+      resendVerificationCodeResponseSchema,
+    ),
+    profileResponse: registry.register("ProfileResponse", profileResponseSchema),
+    updateProfileInput: registry.register(
+      "UpdateProfileInput",
+      updateProfileInputSchema,
+    ),
     discoveryResponse: registry.register(
       "DiscoveryResponse",
       discoveryResponseSchema,
@@ -198,9 +235,17 @@ function createOpenApiDocument() {
     description:
       "HTTP-only, short-lived JWT session cookie. Reader routes accept READER or LIBRARIAN sessions; admin routes require LIBRARIAN.",
   });
+  registry.registerComponent("securitySchemes", "pendingVerificationCookie", {
+    type: "apiKey",
+    in: "cookie",
+    name: "amazon2_pending_verification",
+    description:
+      "Opaque HTTP-only browser binding for the active pending registration. It is not an authenticated session.",
+  });
 
   const publicAccess: [] = [];
   const cookieSecurity = [{ cookieAuth: [] }];
+  const pendingVerificationSecurity = [{ pendingVerificationCookie: [] }];
   const catalogueQueryFields = catalogueBooksQuerySchema.innerType().shape;
   const catalogueQueryDocumentationSchema = z.object({
     q: catalogueQueryFields.q.openapi({
@@ -274,7 +319,89 @@ function createOpenApiDocument() {
       }),
       400: jsonResponse(schemas.apiError, "Login input is invalid."),
       401: jsonResponse(schemas.apiError, "Credentials are invalid."),
+      403: jsonResponse(
+        schemas.apiError,
+        "Credentials are correct but email verification is still required.",
+      ),
       413: jsonResponse(schemas.apiError, "Request body is too large."),
+    },
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/api/auth/register",
+    tags: ["Authentication"],
+    summary: "Register a reader account",
+    description:
+      "Stages only READER accounts for up to 24 hours and returns the same accepted response for an existing address. A six-digit code is delivered in-process on a best-effort background task; accepted delivery can be lost if the API process exits. Verification delivery requires configured email service credentials.",
+    security: publicAccess,
+    request: {
+      body: requestBody(schemas.registerInput, "Reader registration details."),
+    },
+    responses: {
+      202: jsonResponse(
+        schemas.registerResponse,
+        "Registration accepted and pending-verification cookie set.",
+        { setCookie: true },
+      ),
+      400: jsonResponse(schemas.apiError, "Registration input is invalid."),
+      413: jsonResponse(schemas.apiError, "Request body is too large."),
+      429: {
+        ...jsonResponse(schemas.apiError, "Registration rate limit exceeded."),
+        headers: retryAfterHeader,
+      },
+      503: jsonResponse(schemas.apiError, "Verification email delivery is unavailable."),
+    },
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/api/auth/verify-email",
+    tags: ["Authentication"],
+    summary: "Verify a reader email address",
+    description:
+      "Requires the email, six-digit single-use code, and opaque pending-verification cookie from the same active registration. Success atomically commits the staged Reader credentials, clears the pending cookie, and starts an authenticated session.",
+    security: pendingVerificationSecurity,
+    request: {
+      body: requestBody(schemas.verifyEmailInput, "Email address and verification code."),
+    },
+    responses: {
+      200: jsonResponse(schemas.verifyEmailResponse, "Email verified and session created.", {
+        setCookie: true,
+      }),
+      400: jsonResponse(schemas.apiError, "Input or verification code is invalid."),
+      413: jsonResponse(schemas.apiError, "Request body is too large."),
+      429: {
+        ...jsonResponse(schemas.apiError, "Verification rate limit exceeded."),
+        headers: retryAfterHeader,
+      },
+    },
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/api/auth/resend-verification",
+    tags: ["Authentication"],
+    summary: "Request another verification code",
+    description:
+      "Returns an enumeration-resistant accepted response. A matching pending-verification cookie may request another best-effort background delivery after the 60-second cooldown without extending the 24-hour setup lifetime; missing or mismatched cookies receive a decoy cookie and do not mutate an active registration.",
+    security: publicAccess,
+    request: {
+      body: requestBody(schemas.resendVerificationInput, "Reader email address."),
+    },
+    responses: {
+      202: jsonResponse(
+        schemas.resendVerificationResponse,
+        "Request accepted and pending-verification cookie set.",
+        { setCookie: true },
+      ),
+      400: jsonResponse(schemas.apiError, "Email address is invalid."),
+      413: jsonResponse(schemas.apiError, "Request body is too large."),
+      429: {
+        ...jsonResponse(schemas.apiError, "Resend rate limit exceeded."),
+        headers: retryAfterHeader,
+      },
+      503: jsonResponse(schemas.apiError, "Verification email delivery is unavailable."),
     },
   });
 
@@ -305,6 +432,38 @@ function createOpenApiDocument() {
         "Current authenticated user.",
       ),
       401: privateJsonResponse(schemas.apiError, "Authentication is required."),
+    },
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/api/me/profile",
+    tags: ["Account"],
+    summary: "Get the authenticated profile",
+    description: "Available to verified READER and LIBRARIAN sessions.",
+    security: cookieSecurity,
+    responses: {
+      200: privateJsonResponse(schemas.profileResponse, "Current profile."),
+      401: privateJsonResponse(schemas.apiError, "Authentication is required."),
+    },
+  });
+
+  registry.registerPath({
+    method: "put",
+    path: "/api/me/profile",
+    tags: ["Account"],
+    summary: "Update the authenticated profile",
+    description:
+      "Updates displayName only. Email, role, verification state, and identifiers are read-only.",
+    security: cookieSecurity,
+    request: {
+      body: requestBody(schemas.updateProfileInput, "New display name."),
+    },
+    responses: {
+      200: privateJsonResponse(schemas.profileResponse, "Updated profile."),
+      400: privateJsonResponse(schemas.apiError, "Profile input is invalid."),
+      401: privateJsonResponse(schemas.apiError, "Authentication is required."),
+      413: jsonResponse(schemas.apiError, "Request body is too large."),
     },
   });
 
@@ -753,6 +912,7 @@ function createOpenApiDocument() {
     tags: [
       { name: "System" },
       { name: "Authentication" },
+      { name: "Account" },
       { name: "Discovery" },
       { name: "Catalogue" },
       { name: "Engagement" },
@@ -760,14 +920,16 @@ function createOpenApiDocument() {
     ],
   });
 
-  const loginSchema = document.components?.schemas?.LoginInput;
-  if (loginSchema !== undefined && !("$ref" in loginSchema)) {
-    const passwordSchema = loginSchema.properties?.password;
-    if (passwordSchema !== undefined && !("$ref" in passwordSchema)) {
-      passwordSchema.format = "password";
-      passwordSchema.writeOnly = true;
-      delete passwordSchema.example;
-      delete passwordSchema.default;
+  for (const schemaName of ["LoginInput", "RegisterInput"]) {
+    const inputSchema = document.components?.schemas?.[schemaName];
+    if (inputSchema !== undefined && !("$ref" in inputSchema)) {
+      const passwordSchema = inputSchema.properties?.password;
+      if (passwordSchema !== undefined && !("$ref" in passwordSchema)) {
+        passwordSchema.format = "password";
+        passwordSchema.writeOnly = true;
+        delete passwordSchema.example;
+        delete passwordSchema.default;
+      }
     }
   }
 

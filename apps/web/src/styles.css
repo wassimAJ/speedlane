@@ -362,8 +362,13 @@ textarea {
   font-size: 1.05rem;
 }
 
-.public-sign-in {
-  min-width: 9rem;
+.public-account-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.public-account-actions .button {
+  width: 100%;
 }
 
 .public-disclaimer {
@@ -568,6 +573,12 @@ textarea {
   }
 }
 
+@media (max-width: 479px) {
+  .sign-in-sheet {
+    box-shadow: none;
+  }
+}
+
 @media (min-width: 480px) {
   .public-poster,
   .public-closing {
@@ -690,10 +701,211 @@ textarea {
   margin-top: var(--space-6);
 }
 
+.public-account-footer {
+  margin: var(--space-6) 0 0;
+  border-top: 1px solid var(--color-rule-soft);
+  padding-top: var(--space-4);
+  font-size: 0.875rem;
+}
+
+.account-role-note {
+  margin: var(--space-4) 0 0;
+  color: var(--color-brown);
+  font-family: var(--font-utility);
+  font-size: 0.8rem;
+}
+
+.account-restart-guidance {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  border-left: 3px solid var(--color-library-red);
+  padding-left: var(--space-3);
+  color: var(--color-brown);
+}
+
+.account-restart-guidance p {
+  margin: 0;
+}
+
+.account-form,
+.account-field,
+.account-field__support,
+.verification-workflow {
+  display: grid;
+}
+
+.account-form {
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.account-field {
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.account-field > label {
+  font-family: var(--font-utility);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.account-field__support {
+  gap: var(--space-1);
+  min-height: 0;
+}
+
+.account-field__support .field-hint,
+.account-field__support .form-error {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.account-error-summary,
+.account-request-error {
+  margin-top: var(--space-4);
+  color: var(--color-library-red-dark);
+}
+
+.account-error-summary h2 {
+  margin-bottom: var(--space-2);
+  font-family: var(--font-utility);
+  font-size: 0.875rem;
+}
+
+.account-error-summary ul {
+  margin: 0;
+  padding-left: var(--space-6);
+}
+
+.account-error-summary a {
+  color: inherit;
+  font-weight: 650;
+}
+
+.verification-workflow {
+  gap: var(--space-4);
+}
+
+.verification-form {
+  margin-top: var(--space-4);
+}
+
+#verification-code {
+  letter-spacing: 0.35em;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.verification-timer,
+.verification-cooldown,
+.verification-status,
+.account-save-status {
+  margin: 0;
+  color: var(--color-brown);
+  font-family: var(--font-utility);
+  font-size: 0.78rem;
+}
+
+.verification-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.verification-actions .button {
+  width: 100%;
+}
+
+.verification-restart-action {
+  width: 100%;
+}
+
+.button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.public-account-recovery {
+  margin-top: var(--space-6);
+}
+
 .independence-note {
   margin: var(--space-6) 0 0;
   color: var(--color-brown);
   font-size: 0.75rem;
+}
+
+/* Account */
+
+.account-page {
+  width: min(100%, 60rem);
+}
+
+.account-page-state {
+  display: grid;
+  min-height: 55vh;
+  align-content: center;
+  justify-items: start;
+  gap: var(--space-4);
+}
+
+.account-page-state > * {
+  margin: 0;
+}
+
+.account-record {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.account-name-editor,
+.membership-details {
+  min-width: 0;
+  border-top: 2px solid var(--color-ink);
+  padding-top: var(--space-4);
+}
+
+.account-name-editor h2,
+.membership-details h2 {
+  margin-bottom: var(--space-6);
+  font-size: 1.625rem;
+}
+
+.account-name-editor .account-form {
+  margin-top: 0;
+}
+
+.account-save-status {
+  min-height: 1.25rem;
+  margin-top: var(--space-4);
+  color: var(--color-success);
+}
+
+.membership-details dl {
+  display: grid;
+  margin: 0;
+}
+
+.membership-details dl div {
+  display: grid;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-rule-soft);
+  padding: var(--space-3) 0;
+}
+
+.membership-details dt {
+  color: var(--color-brown);
+  font-family: var(--font-utility);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.membership-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Authenticated shell */
@@ -1516,6 +1728,16 @@ textarea {
     padding: var(--space-12);
   }
 
+  .public-account-actions,
+  .verification-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .public-account-actions .button,
+  .verification-actions .button {
+    width: auto;
+  }
+
   .account-name {
     display: block;
   }
@@ -1610,6 +1832,11 @@ textarea {
     margin-left: auto;
     align-items: center;
     gap: var(--space-8);
+  }
+
+  .account-record {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-12);
   }
 
   .catalogue-heading {
@@ -1771,7 +1998,9 @@ textarea {
 
   .browse-mode__options,
   .browse-mode__options label,
-  .continuous-browsing {
+  .continuous-browsing,
+  .account-name-editor,
+  .membership-details {
     border-color: CanvasText;
   }
 

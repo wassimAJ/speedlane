@@ -1,8 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
+import { PublicAccountShell } from "../account/PublicAccountShell";
+import {
+  clearPendingRegistrationHint,
+  isFreshPendingRegistrationHint,
+  readPendingRegistrationHint,
+} from "../account/pendingVerification";
 import { useAuth } from "../auth/AuthProvider";
-import { OffsetIndexMark } from "../components/OffsetIndexMark";
 
 interface SignInLocationState {
   from?: string;
@@ -45,6 +50,32 @@ export function SignInPage() {
     const result = await auth.signIn({ email, password });
 
     if (!result.ok) {
+      if (result.kind === "email-not-verified") {
+        const hint = readPendingRegistrationHint();
+        if (
+          hint !== null &&
+          hint.email === result.email &&
+          isFreshPendingRegistrationHint(hint)
+        ) {
+          navigate("/verify-email", {
+            state: {
+              email: hint.email,
+              introduction: result.message,
+              startedAt: hint.startedAt,
+            },
+          });
+        } else {
+          clearPendingRegistrationHint();
+          navigate("/sign-up", {
+            replace: true,
+            state: {
+              prefillEmail: result.email,
+              restartVerification: true,
+            },
+          });
+        }
+        return;
+      }
       setError(result.message);
       setIsSubmitting(false);
       return;
@@ -54,61 +85,60 @@ export function SignInPage() {
   }
 
   return (
-    <main className="sign-in-page" id="main-content">
-      <section aria-labelledby="sign-in-title" className="sign-in-sheet">
-        <div className="sign-in-lockup">
-          <OffsetIndexMark size={40} />
-          <span>Amazon 2.0</span>
-        </div>
-        <p className="eyebrow">THE LIBRARY DESK</p>
-        <h1 id="sign-in-title">Sign in to the open stacks</h1>
-        <p className="lede">Sign in to browse the full active collection.</p>
+    <PublicAccountShell
+      eyebrow="THE LIBRARY DESK"
+      footer={<>New to Amazon 2.0? <Link to="/sign-up">Create a reader account.</Link></>}
+      heading="Sign in to the open stacks"
+      support="Sign in to browse the full active collection."
+    >
+      {auth.notice ? (
+        <p className="notice notice--info" role="status">
+          {auth.notice}
+        </p>
+      ) : null}
 
-        {auth.notice ? (
-          <p className="notice notice--info" role="status">
-            {auth.notice}
+      <form
+        aria-busy={isSubmitting ? "true" : undefined}
+        className="sign-in-form"
+        noValidate
+        onSubmit={(event) => void handleSubmit(event)}
+      >
+        <div className="field">
+          <label htmlFor="email">Email address</label>
+          <input
+            autoComplete="username"
+            id="email"
+            maxLength={320}
+            name="email"
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            spellCheck={false}
+            type="email"
+            value={email}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="password">Password</label>
+          <input
+            autoComplete="current-password"
+            id="password"
+            maxLength={256}
+            name="password"
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            type="password"
+            value={password}
+          />
+        </div>
+        {error ? (
+          <p className="form-error" role="alert">
+            Error: {error}
           </p>
         ) : null}
-
-        <form className="sign-in-form" noValidate onSubmit={(event) => void handleSubmit(event)}>
-          <div className="field">
-            <label htmlFor="email">Email address</label>
-            <input
-              autoComplete="username"
-              id="email"
-              maxLength={320}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              type="email"
-              value={email}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="password">Password</label>
-            <input
-              autoComplete="current-password"
-              id="password"
-              maxLength={256}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              type="password"
-              value={password}
-            />
-          </div>
-          {error ? (
-            <p className="form-error" role="alert">
-              Error: {error}
-            </p>
-          ) : null}
-          <button className="button button--primary button--wide" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
-
-        <p className="independence-note">
-          Amazon 2.0 is an independent library platform and is not affiliated with Amazon.
-        </p>
-      </section>
-    </main>
+        <button className="button button--primary button--wide" disabled={isSubmitting} type="submit">
+          {isSubmitting ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+    </PublicAccountShell>
   );
 }

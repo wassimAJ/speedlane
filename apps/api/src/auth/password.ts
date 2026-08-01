@@ -1,4 +1,9 @@
-import { scrypt, timingSafeEqual, type ScryptOptions } from "node:crypto";
+import {
+  randomBytes,
+  scrypt,
+  timingSafeEqual,
+  type ScryptOptions,
+} from "node:crypto";
 const HASH_PART_COUNT = 6;
 const MIN_WORK_FACTOR = 16_384;
 const MAX_WORK_FACTOR = 1_048_576;
@@ -6,6 +11,11 @@ const MAX_BLOCK_SIZE = 32;
 const MAX_PARALLELIZATION = 16;
 const MAX_DERIVED_KEY_BYTES = 128;
 const MAX_SCRYPT_MEMORY_BYTES = 256 * 1024 * 1024;
+const PASSWORD_SALT_BYTES = 16;
+const PASSWORD_HASH_BYTES = 64;
+const PASSWORD_WORK_FACTOR = 16_384;
+const PASSWORD_BLOCK_SIZE = 8;
+const PASSWORD_PARALLELIZATION = 1;
 
 // An unknown email still performs the same expensive password operation before
 // returning the generic credentials error.
@@ -32,6 +42,27 @@ function deriveKey(
 
 function isPowerOfTwo(value: number) {
   return value > 1 && (value & (value - 1)) === 0;
+}
+
+export async function hashPassword(password: string) {
+  const salt = randomBytes(PASSWORD_SALT_BYTES);
+  const requiredMemory =
+    128 * PASSWORD_WORK_FACTOR * PASSWORD_BLOCK_SIZE + 16 * 1024 * 1024;
+  const hash = await deriveKey(password, salt, PASSWORD_HASH_BYTES, {
+    N: PASSWORD_WORK_FACTOR,
+    r: PASSWORD_BLOCK_SIZE,
+    p: PASSWORD_PARALLELIZATION,
+    maxmem: requiredMemory,
+  });
+
+  return [
+    "scrypt",
+    PASSWORD_WORK_FACTOR,
+    PASSWORD_BLOCK_SIZE,
+    PASSWORD_PARALLELIZATION,
+    salt.toString("hex"),
+    hash.toString("hex"),
+  ].join("$");
 }
 
 export async function verifyPassword(password: string, encodedHash: string) {

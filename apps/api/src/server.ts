@@ -12,6 +12,26 @@ import {
   updateAdminBook,
   updateAdminGenre,
 } from "./admin/database.js";
+import {
+  findProfileById,
+  invalidateVerificationChallenge,
+  markVerificationChallengeDeliveryFailed,
+  markVerificationChallengeDispatched,
+  prepareReaderRegistration,
+  prepareVerificationResend,
+  updateProfileDisplayName,
+  verifyEmailCode,
+} from "./account/database.js";
+import { cleanupExpiredAccountSetup } from "./account/cleanup-database.js";
+import {
+  startAccountSetupCleanup,
+  type AccountSetupCleanupLifecycle,
+} from "./account/cleanup.js";
+import {
+  createResendVerificationMailDelivery,
+  UnavailableVerificationMailDelivery,
+} from "./account/mail.js";
+import type { AccountStore } from "./account/routes.js";
 import { createApp, type AppDatabase } from "./app.js";
 import {
   findActiveGenres,
@@ -32,7 +52,7 @@ import {
 const environment = readEnvironment();
 const prisma = new PrismaClient();
 
-const database: AppDatabase = {
+const database: AppDatabase & AccountStore = {
   async check() {
     await prisma.$queryRaw`SELECT 1`;
   },
@@ -45,19 +65,72 @@ const database: AppDatabase = {
         displayName: true,
         role: true,
         passwordHash: true,
+        emailVerifiedAt: true,
       },
     });
   },
   async findUserById(id) {
-    return prisma.user.findUnique({
-      where: { id },
+    return prisma.user.findFirst({
+      where: { id, emailVerifiedAt: { not: null } },
       select: {
         id: true,
         email: true,
         displayName: true,
         role: true,
+        emailVerifiedAt: true,
       },
     });
+  },
+  async prepareReaderRegistration(registration, draft, now) {
+    return prepareReaderRegistration(
+      prisma,
+      registration,
+      draft,
+      environment.JWT_SECRET,
+      now,
+    );
+  },
+  async prepareVerificationResend(email, draft, currentPendingToken, now) {
+    return prepareVerificationResend(
+      prisma,
+      email,
+      draft,
+      environment.JWT_SECRET,
+      currentPendingToken,
+      now,
+    );
+  },
+  async markVerificationChallengeDispatched(challengeId, dispatchedAt) {
+    await markVerificationChallengeDispatched(prisma, challengeId, dispatchedAt);
+  },
+  async invalidateVerificationChallenge(challengeId, invalidatedAt) {
+    await invalidateVerificationChallenge(prisma, challengeId, invalidatedAt);
+  },
+  async markVerificationChallengeDeliveryFailed(
+    challengeId,
+    deliveryFailedAt,
+  ) {
+    await markVerificationChallengeDeliveryFailed(
+      prisma,
+      challengeId,
+      deliveryFailedAt,
+    );
+  },
+  async verifyEmailCode(email, code, pendingToken, now) {
+    return verifyEmailCode(
+      prisma,
+      email,
+      code,
+      pendingToken,
+      environment.JWT_SECRET,
+      now,
+    );
+  },
+  async findProfileById(userId) {
+    return findProfileById(prisma, userId);
+  },
+  async updateProfileDisplayName(userId, displayName) {
+    return updateProfileDisplayName(prisma, userId, displayName);
   },
   async findPublicBookPreviews() {
     return findPublicBookPreviews(prisma);
@@ -121,19 +194,59 @@ const database: AppDatabase = {
   },
 };
 
-const app = createApp(database, {
-  corsOrigin: environment.CORS_ORIGIN,
-  jwtSecret: environment.JWT_SECRET,
-  sessionTtlSeconds: environment.JWT_TTL_SECONDS,
-  secureCookie:
-    environment.COOKIE_SECURE ?? new URL(environment.CORS_ORIGIN).protocol === "https:",
-});
-const server = app.listen(environment.PORT, () => {
-  console.info(`API listening on port ${environment.PORT}.`);
-});
+const mailDelivery =
+  environment.RESEND_API_KEY !== undefined &&
+  environment.RESEND_FROM_EMAIL !== undefined
+    ? createResendVerificationMailDelivery(
+        environment.RESEND_API_KEY,
+        environment.RESEND_FROM_EMAIL,
+      )
+    : new UnavailableVerificationMailDelivery();
+
+const app = createApp(
+  database,
+  {
+    corsOrigin: environment.CORS_ORIGIN,
+    jwtSecret: environment.JWT_SECRET,
+    sessionTtlSeconds: environment.JWT_TTL_SECONDS,
+    secureCookie:
+      environment.COOKIE_SECURE ??
+      new URL(environment.CORS_ORIGIN).protocol === "https:",
+  },
+  {
+    account: { store: database, mailDelivery },
+  },
+);
+let server: ReturnType<typeof app.listen> | undefined;
+let accountSetupCleanup: AccountSetupCleanupLifecycle | undefined;
+
+async function start() {
+  try {
+    accountSetupCleanup = await startAccountSetupCleanup({
+      cleanup: (now, batchSize) =>
+        cleanupExpiredAccountSetup(prisma, now, batchSize),
+    });
+  } catch {
+    console.error("Expired account setup cleanup failed during API startup.");
+    await prisma.$disconnect();
+    process.exitCode = 1;
+    return;
+  }
+
+  server = app.listen(environment.PORT, () => {
+    console.info(`API listening on port ${environment.PORT}.`);
+  });
+}
 
 async function shutdown(signal: string) {
   console.info(`${signal} received; shutting down API.`);
+  accountSetupCleanup?.stop();
+
+  if (server === undefined) {
+    await prisma.$disconnect();
+    process.exit(0);
+  }
+
   server.close(async () => {
     await prisma.$disconnect();
     process.exit(0);
@@ -142,3 +255,5 @@ async function shutdown(signal: string) {
 
 process.once("SIGINT", () => void shutdown("SIGINT"));
 process.once("SIGTERM", () => void shutdown("SIGTERM"));
+
+void start();

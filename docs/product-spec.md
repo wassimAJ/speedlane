@@ -15,14 +15,25 @@ finished application.
 
 ### Visitors
 
-- Can view the public landing page only.
+- Can view the public landing page and public account-entry screens only; the
+  full catalogue remains authenticated.
 - See what Amazon 2.0 is and exactly six read-only book previews.
-- Can navigate to sign in; there is no public registration flow in this
-  take-home. Demo credentials are seeded and documented in the README.
+- Can navigate to sign in or create a Reader account. Public registration never
+  accepts a role or privileged account fields.
+- Must verify a new account with the numeric code sent to its email address
+  before the normal authenticated cookie session is established.
+- Registration keeps a browser-bound, non-authenticated account-setup session
+  for at most 24 hours. Each numeric code expires after 10 minutes; the same
+  browser can request a replacement after the resend cooldown. A visitor
+  without that account-setup session must restart Reader sign-up instead of
+  attaching an email-only resend to unknown staged credentials.
 
 ### Readers
 
-- Sign in, sign out, and view their current session.
+- Register, verify their email, sign in, sign out, and view their current
+  session.
+- View their account details and update their display name. Email and role stay
+  read-only; email change and password reset are separate, unimplemented flows.
 - Browse the full catalogue, search by title or author, filter, sort, paginate,
   and open book details.
 - Select up to five favourite genres. Their selected order is stored.
@@ -51,7 +62,7 @@ finished application.
 ### Public landing page
 
 - Full-bleed, image-led entry point with an unmistakable Amazon 2.0 wordmark, a
-  concise explanation, and sign-in call to action.
+  concise explanation, and sign-in and Reader sign-up calls to action.
 - Includes a small, visible statement that it is an independent library demo
   and is not affiliated with Amazon. The custom wordmark must not resemble
   Amazon's logo or trade dress.
@@ -125,15 +136,18 @@ at /api/docs.
 | Area | Behaviour |
 | --- | --- |
 | Public discovery | GET /discover returns up to six active book previews. |
-| Authentication | Login, logout, and current-session endpoints use an HTTP-only JWT cookie. |
+| Authentication | Registration creates Reader accounts only. Candidate name/password data is bound to a 24-hour, non-authenticated HTTP-only setup session and is committed only when that browser supplies the matching email code. Email verification establishes the same HTTP-only JWT cookie session used by login, logout, and current-session endpoints. Verification codes are hashed, numeric, 10-minute, single-use, attempt-limited, resend-cooled, and request-rate-limited. |
+| Profile | Authenticated readers and librarians can read their account details and update only their display name; role, email, and verification state are server-owned. |
 | Catalogue | Authenticated GET /books accepts q, genre, yearFrom, yearTo, sort, page, and pageSize, returning data plus meta. |
 | Preferences | GET and PUT /me/favourite-genres read and replace ordered selections, capped at five active genres. |
 | Reading list | GET /me/reading-list, PUT /me/reading-list/:bookId, and DELETE /me/reading-list/:bookId read, upsert, and soft-remove entries. |
 | Library management | Librarian-only create, update, archive, and restore endpoints manage books and genres. |
 
-Persist users, books, genres, book/genre associations, favourite-genre
-preferences, and reading-list entries. Books and genres have archivedAt;
-user preference and reading-list relationships have removedAt. Archived books
+Persist users, pending account-setup data, email-verification challenges, books, genres, book/genre
+associations, favourite-genre preferences, and reading-list entries. Store only
+keyed hashes of verification codes and opaque setup tokens, never their
+plaintext values. Terminal or expired setup data is scrubbed. Books and genres have
+archivedAt; user preference and reading-list relationships have removedAt. Archived books
 are hidden from landing, catalogue, and personalisation. Existing reading-list
 history remains intact. An archived book returns not found to readers who try
 to open it directly, while librarians can access it in the Back Room. Archived
@@ -164,8 +178,8 @@ clarity of a useful commerce experience.
 
 ## Non-goals
 
-- Public sign-up, password reset, email verification, and external identity
-  providers.
+- Librarian onboarding, password reset, email-change verification, and external
+  identity providers.
 - User reviews, ratings, comments, recommendations, borrowing, inventory, or
   payments.
 - Infinite scrolling, deployment, analytics, and a native mobile app.
@@ -174,6 +188,9 @@ clarity of a useful commerce experience.
 
 - Docker starts web, API, and PostgreSQL; the seed provides 240 books and demo
   reader/librarian accounts.
+- A visitor can create only a Reader account, verify it through the configured
+  mail-delivery boundary, and receives no authenticated session before
+  verification succeeds.
 - A visitor cannot access the full catalogue or mutation endpoints.
 - A reader can set favourite genres, see a personalised section, and manage
   reading-list state.
