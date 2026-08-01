@@ -7,5 +7,110 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Domain models are intentionally deferred. This scaffold only establishes
-// PostgreSQL connectivity, migration mechanics, and an idempotent seed hook.
+enum UserRole {
+  READER
+  LIBRARIAN
+}
+
+enum ReadingStatus {
+  WANT_TO_READ
+  READING
+  FINISHED
+}
+
+model User {
+  id              String             @id @default(uuid()) @db.Uuid
+  email           String             @unique @db.VarChar(320)
+  displayName     String             @map("display_name") @db.VarChar(120)
+  passwordHash    String             @map("password_hash") @db.VarChar(255)
+  role            UserRole           @default(READER)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  favouriteGenres FavouriteGenre[]
+  readingList     ReadingListEntry[]
+
+  @@map("users")
+}
+
+model Book {
+  id              String             @id @default(uuid()) @db.Uuid
+  title           String             @db.VarChar(240)
+  subtitle        String?            @db.VarChar(320)
+  author          String             @db.VarChar(200)
+  synopsis        String             @db.Text
+  isbn            String             @unique @db.VarChar(17)
+  publicationYear Int                @map("publication_year")
+  pageCount       Int                @map("page_count")
+  language        String             @db.VarChar(80)
+  rating          Decimal            @db.Decimal(2, 1)
+  coverSeed       String             @map("cover_seed") @db.VarChar(120)
+  archivedAt      DateTime?          @map("archived_at") @db.Timestamptz(3)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  genres          BookGenre[]
+  readingList     ReadingListEntry[]
+
+  @@index([archivedAt, createdAt, id], map: "books_archive_created_id_idx")
+  @@index([archivedAt, publicationYear, id], map: "books_archive_year_id_idx")
+  @@map("books")
+}
+
+model Genre {
+  id           String           @id @default(uuid()) @db.Uuid
+  name         String           @db.VarChar(100)
+  slug         String           @db.VarChar(100)
+  archivedAt   DateTime?        @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  books        BookGenre[]
+  favouritedBy FavouriteGenre[]
+
+  @@index([archivedAt, name, id], map: "genres_archive_name_id_idx")
+  @@map("genres")
+}
+
+model BookGenre {
+  bookId     String   @map("book_id") @db.Uuid
+  genreId    String   @map("genre_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  genre      Genre    @relation(fields: [genreId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([bookId, genreId])
+  @@index([genreId, bookId])
+  @@map("book_genres")
+}
+
+model FavouriteGenre {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  genreId   String    @map("genre_id") @db.Uuid
+  position  Int
+  removedAt DateTime? @map("removed_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  genre     Genre     @relation(fields: [genreId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([userId, genreId])
+  @@index([userId, removedAt, position])
+  @@index([genreId, removedAt])
+  @@map("favourite_genres")
+}
+
+model ReadingListEntry {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  bookId    String        @map("book_id") @db.Uuid
+  status    ReadingStatus @default(WANT_TO_READ)
+  removedAt DateTime?     @map("removed_at") @db.Timestamptz(3)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  book      Book          @relation(fields: [bookId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([userId, removedAt, status, updatedAt])
+  @@index([bookId, removedAt])
+  @@map("reading_list_entries")
+}
