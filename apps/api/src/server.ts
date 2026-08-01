@@ -1,6 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 
 import { createApp, type AppDatabase } from "./app.js";
+import {
+  findActiveGenres,
+  findCatalogueBookById,
+  findCatalogueBooks,
+} from "./catalogue/database.js";
 import { readEnvironment } from "./config/env.js";
 import { findPublicBookPreviews } from "./discovery/database.js";
 
@@ -36,6 +41,15 @@ const database: AppDatabase = {
   },
   async findPublicBookPreviews() {
     return findPublicBookPreviews(prisma);
+  },
+  async findCatalogueBooks(query) {
+    return findCatalogueBooks(prisma, query);
+  },
+  async findCatalogueBookById(bookId) {
+    return findCatalogueBookById(prisma, bookId);
+  },
+  async findActiveGenres() {
+    return findActiveGenres(prisma);
   },
 };
 

@@ -1,6 +1,7 @@
 import express from "express";
 
 import { createAuthRouter, type AuthStore, type AuthUserRecord } from "./auth/routes.js";
+import { createCatalogueRouter, type CatalogueStore } from "./catalogue/routes.js";
 import { createDiscoveryRouter, type DiscoveryStore } from "./discovery/routes.js";
 import { createHealthRouter, type HealthStore } from "./health/routes.js";
 import { createCorsMiddleware } from "./http/cors.js";
@@ -8,7 +9,11 @@ import { errorHandler, notFoundHandler } from "./http/errors.js";
 
 export interface DatabaseHealthcheck extends HealthStore {}
 
-export interface AppDatabase extends DatabaseHealthcheck, AuthStore, DiscoveryStore {}
+export interface AppDatabase
+  extends DatabaseHealthcheck,
+    AuthStore,
+    CatalogueStore,
+    DiscoveryStore {}
 
 export type { AuthUserRecord };
 
@@ -21,6 +26,10 @@ export interface AppConfig {
 
 export function createApp(database: AppDatabase, config: AppConfig) {
   const app = express();
+  const tokenConfig = {
+    secret: config.jwtSecret,
+    ttlSeconds: config.sessionTtlSeconds,
+  };
 
   app.disable("x-powered-by");
   app.use(createCorsMiddleware(config.corsOrigin));
@@ -35,12 +44,10 @@ export function createApp(database: AppDatabase, config: AppConfig) {
         secure: config.secureCookie,
         ttlSeconds: config.sessionTtlSeconds,
       },
-      token: {
-        secret: config.jwtSecret,
-        ttlSeconds: config.sessionTtlSeconds,
-      },
+      token: tokenConfig,
     }),
   );
+  app.use("/api", createCatalogueRouter(database, tokenConfig));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

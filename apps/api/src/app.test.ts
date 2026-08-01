@@ -69,6 +69,9 @@ function testDatabase(overrides: Partial<AppDatabase> = {}): AppDatabase {
         role: user.role,
       };
     }),
+    findCatalogueBooks: vi.fn().mockResolvedValue({ books: [], totalItems: 0 }),
+    findCatalogueBookById: vi.fn().mockResolvedValue(null),
+    findActiveGenres: vi.fn().mockResolvedValue([]),
     findPublicBookPreviews: vi.fn().mockResolvedValue([]),
     ...overrides,
   };

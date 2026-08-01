@@ -25,6 +25,9 @@ function testDatabase(overrides: Partial<AppDatabase> = {}): AppDatabase {
     check: vi.fn().mockResolvedValue(undefined),
     findUserByEmail: vi.fn().mockResolvedValue(null),
     findUserById: vi.fn().mockResolvedValue(null),
+    findCatalogueBooks: vi.fn().mockResolvedValue({ books: [], totalItems: 0 }),
+    findCatalogueBookById: vi.fn().mockResolvedValue(null),
+    findActiveGenres: vi.fn().mockResolvedValue([]),
     findPublicBookPreviews: vi.fn().mockResolvedValue(previewRows),
     ...overrides,
   };

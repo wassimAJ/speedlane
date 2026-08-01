@@ -2,7 +2,7 @@
 
 Amazon 2.0 is an independent, playful book-library demo for the Speedlane take-home challenge. It is not affiliated with Amazon and does not use Amazon branding or trade dress.
 
-The repository currently includes the PostgreSQL/Prisma data foundation, deterministic demo seeds, cookie-based authentication, shared Zod contracts, database-backed health checking, and the public discovery API. The React app remains a health-status scaffold; authenticated catalogue and library workflows are not implemented yet.
+The repository currently includes the PostgreSQL/Prisma data foundation, deterministic demo seeds, cookie-based authentication, shared Zod contracts, database-backed health checking, public discovery, and authenticated catalogue, book-detail, and active-genre APIs. The React app remains a health-status scaffold; preferences, reading lists, librarian management, Swagger/OpenAPI, and the product frontend are not implemented yet.
 
 ## Quick start
 
@@ -55,6 +55,11 @@ Implemented routes:
 - `POST /api/auth/login` validates seeded credentials and sets a short-lived JWT in an HTTP-only cookie.
 - `POST /api/auth/logout` expires the session cookie.
 - `GET /api/auth/me` returns the authenticated user and requires a valid session cookie.
+- `GET /api/books` requires the JWT cookie and returns active book summaries with pagination metadata.
+- `GET /api/books/:bookId` requires the JWT cookie and returns one active book's reader-facing detail.
+- `GET /api/genres` requires the JWT cookie and returns active genre summaries.
+
+`GET /api/books` accepts the query keys `q`, `genre` (slug), `yearFrom`, `yearTo`, `sort`, `page`, and `pageSize`. The supported sorts are `newest`, `title`, and `rating`; defaults are `sort=newest`, `page=1`, and `pageSize=24`. `page` is capped at 10,000 and `pageSize` at 48. Search is a case-insensitive partial match against title and author only. Reader-facing catalogue responses expose active books and genres only, and an archived or unknown book detail returns the same `404` response.
 
 Example discovery response:
 
@@ -71,7 +76,7 @@ Example discovery response:
 }
 ```
 
-The authenticated catalogue, filters, pagination, book details, preferences, reading lists, librarian management, Swagger/OpenAPI documentation, and product frontend are not implemented in this slice. `/api/docs` therefore does not exist yet.
+Preferences, reading lists, librarian management, Swagger/OpenAPI documentation, and the product frontend are not implemented yet. The React app is still a health-status scaffold, and `/api/docs` does not exist yet.
 
 ## Database and seeds
 
@@ -100,14 +105,15 @@ Override them in `.env` using `WEB_PORT`, `API_PORT`, and `POSTGRES_PORT`.
 apps/api           Express 5 API with app.ts composition, feature-oriented routers, Prisma, seeds, and API tests
 apps/web           React + Vite health-status scaffold with an API proxy
 packages/contracts Shared Zod schemas and inferred TypeScript types
+docs/design        Library Card Chaos design-system guidance for future frontend work
 compose.yaml       Docker Compose services for web, API, and PostgreSQL
 ```
 
 ## Tests
 
-`pnpm test` currently runs 20 API tests across four files. They cover health success/failure, token and role middleware, login/session/logout behavior, CORS rejection, unauthenticated discovery access, the six-record cap, newest-first stable ordering, archived-book exclusion, the minimal database projection, and validation against the shared discovery response contract.
+`pnpm test` currently runs 51 API tests across six files. They cover health success/failure, token and role middleware, login/session/logout behavior, CORS rejection, public discovery, and catalogue authentication, defaults, validation, filtering, pagination, stable ordering, archive visibility, active genres, reader-safe detail errors, strict response contracts, and minimal Prisma projections.
 
-There are no product UI tests or database-backed integration tests yet. The live Compose smoke check covers the migrated, seeded PostgreSQL path for `GET /api/health` and `GET /api/discover`.
+There are no product UI tests or database-backed integration tests yet. The live Compose smoke check covers the migrated, seeded PostgreSQL path for health, public discovery, login, and the authenticated book-list, book-detail, and active-genre routes.
 
 ## Accessibility
 
