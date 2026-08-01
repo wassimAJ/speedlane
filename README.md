@@ -2,17 +2,13 @@
 
 ## Setup and run
 
-These instructions start from a fresh clone and bring up PostgreSQL, the API, and the web application with Docker Compose.
+The quickest way to run the whole project is with Docker Compose.
 
-### Prerequisites
+### Before you start
 
-- Git with access to the repository's configured GitHub remote.
-- Node.js 22 or newer.
-- Corepack and pnpm 10; the repository pins pnpm `10.13.1`.
-- Docker Engine or Docker Desktop with Docker Compose v2.
-- Free local ports `5432`, `3000`, and `5173`, or replacement ports configured in `.env`.
+Install Git, Node.js 22 or newer, and Docker Desktop (or Docker Engine with Compose v2). The default ports are `5432` for PostgreSQL, `3000` for the API, and `5173` for the web app. See [Troubleshooting](#troubleshooting) if one is already in use.
 
-### 1. Clone and install dependencies
+### 1. Clone the project and install packages
 
 ```sh
 git clone git@github.com:wassimAJ/speedlane.git amazon-2
@@ -22,50 +18,31 @@ corepack prepare pnpm@10.13.1 --activate
 pnpm install --frozen-lockfile
 ```
 
-If the repository was supplied by another transport, enter its root directory and begin with `corepack enable`.
+If you already have the repository, run the commands from `corepack enable` onward in its root directory.
 
-### 2. Create a safe local environment
+### 2. Create your local environment file
 
-Copy the committed template, then replace its deliberately invalid JWT placeholder with a generated 64-character hexadecimal secret:
+Copy the template, then run the second command to put a safe random JWT secret into `.env`:
 
 ```sh
 cp .env.example .env
 node -e 'const fs=require("node:fs"),crypto=require("node:crypto"),p=".env";fs.writeFileSync(p,fs.readFileSync(p,"utf8").replace(/^JWT_SECRET=.*$/m,`JWT_SECRET=${crypto.randomBytes(32).toString("hex")}`));'
 ```
 
-Review `.env` before first startup:
+That is enough for the normal local setup. The template's PostgreSQL credentials are local-only defaults, and `.env` is ignored by Git. Never commit real secrets.
 
-| Variable | Local behavior |
-| --- | --- |
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Compose database credentials. The template values are trusted-local defaults; replace them before using the stack on a shared or exposed machine. |
-| `POSTGRES_PORT`, `API_PORT`, `WEB_PORT` | Host ports; defaults are `5432`, `3000`, and `5173`. |
-| `JWT_SECRET` | Required, at least 32 characters, and rejected if left as the template placeholder. Never commit it. |
-| `JWT_TTL_SECONDS` | Authenticated session lifetime, from 60 to 3,600 seconds; the default is 900. |
-| `COOKIE_SECURE` | Keep `false` for local HTTP. Use `true` only when the application is served over HTTPS. |
-| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Optional as a pair. Both must be set to deliver registration codes; setting only one is invalid. |
-
-To enable public Reader signup, verify a sending domain or sender in Resend, then set both Resend variables. `RESEND_FROM_EMAIL` accepts either a verified address or `Display Name <verified-address@example.com>`. Do not commit the API key or put it in documentation.
-
-When both Resend variables are empty, the rest of the application and seeded-account login continue to work, but otherwise-valid registration and resend requests return a controlled `503` without creating pending account state. Live Resend delivery was not part of release verification; automated coverage uses injected mail clients.
-
-### 3. Start, migrate, and seed
+### 3. Start everything, migrate, seed, and check health
 
 ```sh
-docker compose config --quiet
-docker compose up --build --detach
-docker compose ps
+docker compose up --build --detach --wait
 docker compose exec api pnpm --filter @amazon-2/api prisma:migrate:deploy
 docker compose exec api pnpm --filter @amazon-2/api prisma:seed
 curl --fail --silent --show-error http://localhost:3000/api/health
 ```
 
-The API image automatically runs `prisma migrate deploy` before starting. The explicit migration command above is safe to repeat and confirms that all four committed migrations are applied. The deterministic seed is also idempotent; its successful summary is:
+`--wait` keeps the sequence from continuing until the services are ready. The API also applies migrations automatically when its container starts. Both the migration and deterministic seed commands are safe to repeat.
 
-```text
-Prisma seed completed: 240 active books, 12 active genres, 2 users.
-```
-
-Open the running services:
+### 4. Open the app and sign in
 
 | Surface | URL |
 | --- | --- |
@@ -75,15 +52,28 @@ Open the running services:
 | Swagger UI | <http://localhost:3000/api/docs> |
 | OpenAPI 3.0.3 JSON | <http://localhost:3000/api/openapi.json> |
 
-Swagger is also available through the web proxy at <http://localhost:5173/api/docs>.
+Use either already-verified local fixture:
 
-Stop the services without deleting PostgreSQL data:
+| Role | Email | Password |
+| --- | --- | --- |
+| Reader | `reader@amazon2.local` | `ReaderDemo123!` |
+| Librarian | `librarian@amazon2.local` | `LibrarianDemo123!` |
+
+The idempotent seed creates these users along with 240 active books and 12 active genres.
+
+### Optional: enable signup email
+
+The application is fully runnable without email configuration: use one of the local fixtures above. Public registration and resend return a controlled `503` until email delivery is enabled.
+
+To test public Reader signup, first verify a sending domain or sender in Resend. Then set both `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in `.env` and rerun `docker compose up --build --detach`. The sender can be a verified email address or `Display Name <verified-address@example.com>`. Set both variables or leave both empty, and never commit the API key. Live Resend delivery was not part of release verification.
+
+When finished, stop the stack without deleting its PostgreSQL data:
 
 ```sh
 docker compose down
 ```
 
-`docker compose down --volumes` also removes the local PostgreSQL volume and all of its data; use it only when an intentional clean reset is needed.
+For a clean reset, see [Troubleshooting](#troubleshooting); removing the Compose volume deletes all local data.
 
 ## Development and verification
 
@@ -135,14 +125,7 @@ Password reset, email change, external identity providers, reviews, borrowing, p
 
 ## Deterministic development fixtures
 
-The idempotent seed creates these already-verified local fixtures; do not reuse their credentials outside this development stack.
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Reader | `reader@amazon2.local` | `ReaderDemo123!` |
-| Librarian | `librarian@amazon2.local` | `LibrarianDemo123!` |
-
-The seed also reconciles 12 active genres and 240 deterministic active books without network access.
+The already-verified credentials are listed in [Setup and run](#4-open-the-app-and-sign-in). Do not reuse them outside this development stack. The seed also reconciles 12 active genres and 240 deterministic active books without network access.
 
 ## Architecture
 
