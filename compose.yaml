@@ -1,0 +1,55 @@
+name: amazon-2
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-amazon2}
+      POSTGRES_USER: ${POSTGRES_USER:-amazon2}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-amazon2_local_only}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-amazon2}:${POSTGRES_PASSWORD:-amazon2_local_only}@db:5432/${POSTGRES_DB:-amazon2}?schema=public
+      CORS_ORIGIN: http://localhost:${WEB_PORT:-5173}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health | grep -q '\"status\":\"ok\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      VITE_API_PROXY_TARGET: http://api:3000
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

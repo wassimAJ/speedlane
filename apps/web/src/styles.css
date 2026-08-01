@@ -1,0 +1,68 @@
+:root {
+  color: #1b1b1b;
+  background: #f6f1e4;
+  font-family: system-ui, sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+.shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.panel {
+  width: min(100%, 42rem);
+  border: 2px solid #1b1b1b;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  background: #fffdf8;
+  box-shadow: 0.45rem 0.45rem 0 #c43d32;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #6b5844;
+  font-family: ui-monospace, monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0.5rem 0 1rem;
+  font-family: Georgia, serif;
+  font-size: clamp(2.25rem, 8vw, 4.5rem);
+  line-height: 0.95;
+}
+
+p {
+  max-width: 58ch;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.status {
+  margin-top: 2rem;
+  border-left: 0.35rem solid currentColor;
+  padding-left: 0.75rem;
+  font-weight: 700;
+}
+
+.status--ready {
+  color: #2c6d4b;
+}
+
+.status--error {
+  color: #9d251d;
+}

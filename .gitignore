@@ -1,0 +1,17 @@
+# Dependencies and generated output
+node_modules/
+**/node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local configuration and state
+.env
+.env.local
+.env.*.local
+!.env.example
+.DS_Store
+
+# Database tooling
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal

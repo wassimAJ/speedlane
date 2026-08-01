@@ -1,0 +1,25 @@
+{
+  "name": "@amazon-2/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -p tsconfig.json && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@amazon-2/contracts": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
