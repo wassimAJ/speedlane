@@ -2,7 +2,7 @@
 
 Amazon 2.0 is an independent, playful book-library demo for the Speedlane take-home challenge. It is not affiliated with Amazon and does not use Amazon branding or trade dress.
 
-The repository currently includes the PostgreSQL/Prisma data foundation, deterministic demo seeds, cookie-based authentication, shared Zod contracts, database-backed health checking, public discovery, and authenticated catalogue, book-detail, and active-genre APIs. The React app remains a health-status scaffold; preferences, reading lists, librarian management, Swagger/OpenAPI, and the product frontend are not implemented yet.
+The repository currently includes the PostgreSQL/Prisma data foundation, deterministic demo seeds, cookie-based authentication, shared Zod contracts, database-backed health checking, public discovery, authenticated catalogue APIs, and a React sign-in, catalogue, and book-detail flow.
 
 ## Quick start
 
@@ -25,13 +25,13 @@ curl --fail http://localhost:3000/api/health
 curl --fail http://localhost:3000/api/discover
 ```
 
-The React scaffold is available at <http://localhost:5173>. Stop the stack with `docker compose down`. To remove the local database volume as well, run `docker compose down --volumes`.
+The authenticated React app is available at <http://localhost:5173>. Stop the stack with `docker compose down`. To remove the local database volume as well, run `docker compose down --volumes`.
 
 ## Environment
 
 Docker Compose provides local database and port defaults. `JWT_SECRET` has no usable default and must be replaced before starting the stack. To change ports, database credentials, cookie security, or token lifetime, edit the copied `.env` file. Never commit real credentials or a production JWT secret.
 
-For local API commands, copy `apps/api/.env.example` to `apps/api/.env`, replace `JWT_SECRET`, and point `DATABASE_URL` at a running PostgreSQL instance.
+For local API commands, copy `apps/api/.env.example` to `apps/api/.env`, replace `JWT_SECRET`, and point `DATABASE_URL` at a running PostgreSQL instance. The browser app calls relative `/api` URLs with credentials included, so Vite proxies API traffic in local and Compose environments. The JWT remains in the server-set HTTP-only cookie and is never stored in client-side state, local storage, or session storage.
 
 ## Local commands
 
@@ -40,13 +40,13 @@ pnpm install
 pnpm dev          # starts the API on :3000 and Vite on :5173
 pnpm build        # production-builds contracts, API, and web
 pnpm typecheck
-pnpm test         # runs the API test suite
+pnpm test         # runs the API and web test suites
 pnpm db:generate
 pnpm db:migrate
 pnpm db:seed
 ```
 
-## API status
+## API and app status
 
 Implemented routes:
 
@@ -60,6 +60,8 @@ Implemented routes:
 - `GET /api/genres` requires the JWT cookie and returns active genre summaries.
 
 `GET /api/books` accepts the query keys `q`, `genre` (slug), `yearFrom`, `yearTo`, `sort`, `page`, and `pageSize`. The supported sorts are `newest`, `title`, and `rating`; defaults are `sort=newest`, `page=1`, and `pageSize=24`. `page` is capped at 10,000 and `pageSize` at 48. Search is a case-insensitive partial match against title and author only. Reader-facing catalogue responses expose active books and genres only, and an archived or unknown book detail returns the same `404` response.
+
+The React app bootstraps the current session, redirects anonymous visitors away from protected routes, supports sign-in and sign-out, and treats an expired session as a return to sign-in. Its catalogue keeps search, active-genre and publication-year filters, sort, page, and page size in the URL; supports reset, loading, updating, empty, invalid-query, and retry states; and renders responsive filter controls and pagination. Book links open an active-book detail view and preserve the prior catalogue query for the return path.
 
 Example discovery response:
 
@@ -76,7 +78,7 @@ Example discovery response:
 }
 ```
 
-Preferences, reading lists, librarian management, Swagger/OpenAPI documentation, and the product frontend are not implemented yet. The React app is still a health-status scaffold, and `/api/docs` does not exist yet.
+The expanded public landing experience, preferences/personalisation APIs and UI, reading-list APIs and UI, librarian management APIs and UI, and Swagger/OpenAPI documentation remain unimplemented. `/api/docs` therefore does not exist yet.
 
 ## Database and seeds
 
@@ -103,18 +105,18 @@ Override them in `.env` using `WEB_PORT`, `API_PORT`, and `POSTGRES_PORT`.
 
 ```text
 apps/api           Express 5 API with app.ts composition, feature-oriented routers, Prisma, seeds, and API tests
-apps/web           React + Vite health-status scaffold with an API proxy
+apps/web           React + Vite authenticated catalogue/detail app with a relative API proxy
 packages/contracts Shared Zod schemas and inferred TypeScript types
-docs/design        Library Card Chaos design-system guidance for future frontend work
+docs/design        Library Card Chaos design system for implemented and future frontend work
 compose.yaml       Docker Compose services for web, API, and PostgreSQL
 ```
 
 ## Tests
 
-`pnpm test` currently runs 51 API tests across six files. They cover health success/failure, token and role middleware, login/session/logout behavior, CORS rejection, public discovery, and catalogue authentication, defaults, validation, filtering, pagination, stable ordering, archive visibility, active genres, reader-safe detail errors, strict response contracts, and minimal Prisma projections.
+`pnpm test` currently runs 55 tests across seven files: 51 API tests across six files and four focused web UI tests in one file. API coverage includes health, authentication/authorization, CORS, public discovery, catalogue validation and filtering, pagination, stable ordering, archive visibility, active genres, strict response contracts, and minimal Prisma projections. Web coverage includes anonymous-session redirection, credentialed cookie sign-in into the protected catalogue, URL hydration and page reset for search/filters, client-side year-range validation, and malformed-query normalization.
 
-There are no product UI tests or database-backed integration tests yet. The live Compose smoke check covers the migrated, seeded PostgreSQL path for health, public discovery, login, and the authenticated book-list, book-detail, and active-genre routes.
+There are no database-backed automated integration tests yet. The live Compose smoke check covers the web-to-API proxy, migrated and seeded PostgreSQL, login, session-authenticated catalogue and genres, and book detail.
 
 ## Accessibility
 
-The current web scaffold uses semantic status output and does not introduce animation. Responsive catalogue, forms, management screens, and their accessibility acceptance paths remain future work with the unimplemented frontend features.
+The implemented flow uses semantic landmarks and controls, labelled status/error states, a skip link, visible focus treatment, keyboard-operable filters and pagination, responsive catalogue/detail layouts, and reduced-motion styles. A browser-only manual journey across the required viewports and full keyboard path has not been certified yet; automated UI tests do not replace that remaining check.

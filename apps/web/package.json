@@ -6,20 +6,27 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -p tsconfig.json && vite build",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
     "@amazon-2/contracts": "workspace:*",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.16.5",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^30.0.1",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^3.2.7"
   }
 }
