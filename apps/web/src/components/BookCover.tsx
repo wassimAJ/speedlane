@@ -13,7 +13,15 @@ function seedHash(seed: string): number {
   return hash;
 }
 
-export function BookCover({ seed, compact = false }: { seed: string; compact?: boolean }) {
+export function BookCover({
+  seed,
+  compact = false,
+  posterTitle,
+}: {
+  seed: string;
+  compact?: boolean;
+  posterTitle?: string;
+}) {
   const hash = seedHash(seed);
   const palette = COVER_PALETTES[hash % COVER_PALETTES.length] ?? COVER_PALETTES[0];
   const style = {
@@ -24,11 +32,21 @@ export function BookCover({ seed, compact = false }: { seed: string; compact?: b
   } as CSSProperties;
 
   return (
-    <span aria-hidden="true" className={compact ? "book-cover book-cover--compact" : "book-cover"} style={style}>
+    <span
+      aria-hidden="true"
+      className={`book-cover${compact ? " book-cover--compact" : ""}${posterTitle ? " book-cover--poster" : ""}`}
+      style={style}
+    >
       <span className="book-cover__label">A2</span>
       <span className="book-cover__shape book-cover__shape--one" />
       <span className="book-cover__shape book-cover__shape--two" />
       <span className="book-cover__rule" />
+      {posterTitle ? (
+        <span className="book-cover__poster-copy">
+          <span className="book-cover__poster-title">{posterTitle}</span>
+          <span className="book-cover__poster-imprint">Amazon 2.0 Library</span>
+        </span>
+      ) : null}
     </span>
   );
 }

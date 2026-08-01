@@ -286,6 +286,369 @@ textarea {
   color: var(--color-info);
 }
 
+/* Public landing poster */
+
+.public-page {
+  min-width: 0;
+  overflow-x: clip;
+  background: var(--color-paper);
+}
+
+.public-poster {
+  min-height: 100svh;
+  border-bottom: 2px solid var(--color-ink);
+  padding: var(--space-4) var(--space-4) var(--space-16);
+  background: var(--color-paper);
+}
+
+.public-poster__inner {
+  width: min(100%, 100rem);
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.public-masthead {
+  display: flex;
+  min-width: 0;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: 2px solid var(--color-ink);
+  padding-bottom: var(--space-3);
+}
+
+.public-wordmark {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 14vw, 9rem);
+  font-weight: 700;
+  letter-spacing: -0.075em;
+  line-height: 0.82;
+}
+
+.public-wordmark__edition {
+  display: inline-grid;
+  flex: 0 0 auto;
+  min-width: 1.5em;
+  min-height: 1.08em;
+  place-items: center;
+  border: 2px solid var(--color-ink);
+  padding-inline: 0.12em 0.17em;
+  color: white;
+  background: var(--color-library-red);
+  font-family: var(--font-utility);
+  font-size: 0.36em;
+  letter-spacing: -0.08em;
+  line-height: 1;
+  transform: rotate(2deg);
+}
+
+.public-masthead__ledger {
+  display: none;
+  margin: 0;
+  font-family: var(--font-utility);
+  font-size: 0.7rem;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.public-poster__composition {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-12);
+  padding-top: var(--space-8);
+}
+
+.public-hero-copy {
+  min-width: 0;
+}
+
+.public-hero-copy h1 {
+  max-width: 9ch;
+  margin-bottom: var(--space-4);
+  font-size: clamp(2.75rem, 13vw, 6.75rem);
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+}
+
+.public-hero-copy__lede {
+  max-width: 42ch;
+  margin-bottom: var(--space-6);
+  color: var(--color-brown);
+  font-size: 1.05rem;
+}
+
+.public-sign-in {
+  min-width: 9rem;
+}
+
+.public-disclaimer {
+  max-width: 48ch;
+  margin: var(--space-6) 0 0;
+  border-top: 1px solid var(--color-rule);
+  padding-top: var(--space-3);
+  color: var(--color-brown);
+  font-family: var(--font-utility);
+  font-size: 0.7rem;
+}
+
+.public-discovery {
+  min-width: 0;
+  border-top: 2px solid var(--color-ink);
+  padding-top: var(--space-4);
+}
+
+.public-discovery__heading {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.public-discovery__heading h2 {
+  margin: 0;
+  font-size: clamp(1.75rem, 7vw, 3rem);
+}
+
+.public-discovery__heading > p {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--color-brown);
+  font-size: 0.875rem;
+}
+
+.public-preview-list {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-8) var(--space-3);
+  list-style: none;
+}
+
+.public-preview {
+  min-width: 0;
+}
+
+.public-preview__cover {
+  position: relative;
+  min-width: 0;
+  margin-bottom: var(--space-4);
+}
+
+.book-cover--poster .book-cover__label {
+  width: 25%;
+  font-size: clamp(0.68rem, 2vw, 1.2rem);
+}
+
+.book-cover__poster-copy {
+  position: absolute;
+  z-index: 2;
+  right: 7%;
+  bottom: 7%;
+  left: 7%;
+  display: grid;
+  min-height: 40%;
+  align-content: end;
+  gap: var(--space-2);
+  border: 2px solid var(--cover-ink);
+  padding: var(--space-3);
+  background: var(--cover-paper);
+  color: var(--cover-ink);
+}
+
+.book-cover__poster-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: clamp(0.82rem, 3.3vw, 1.45rem);
+  font-weight: 700;
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.book-cover__poster-imprint {
+  border-top: 1px solid currentColor;
+  padding-top: var(--space-1);
+  font-family: var(--font-utility);
+  font-size: clamp(0.42rem, 1.4vw, 0.58rem);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.public-preview__metadata h3 {
+  margin-bottom: var(--space-1);
+  font-size: clamp(1rem, 4.5vw, 1.3rem);
+  overflow-wrap: anywhere;
+}
+
+.public-preview__author {
+  margin-bottom: var(--space-2);
+  color: var(--color-brown);
+  font-size: 0.82rem;
+}
+
+.public-preview__genres {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-1);
+  color: var(--color-brown);
+  font-family: var(--font-utility);
+  font-size: 0.65rem;
+  list-style: none;
+}
+
+.public-preview__genres li:not(:last-child)::after {
+  content: " /";
+}
+
+.public-discovery-state {
+  min-height: 20rem;
+}
+
+.public-discovery-status {
+  margin-bottom: var(--space-4);
+  color: var(--color-brown);
+  font-family: var(--font-utility);
+  font-size: 0.8rem;
+}
+
+.public-preview__cover--loading {
+  aspect-ratio: 2 / 3;
+  border: 2px solid var(--color-rule-soft);
+  background: var(--color-paper-muted);
+}
+
+.public-preview__loading-line {
+  width: 88%;
+  height: 0.75rem;
+  margin-bottom: var(--space-2);
+  background: var(--color-paper-muted);
+}
+
+.public-preview__loading-line--short {
+  width: 52%;
+}
+
+.public-discovery-state--error {
+  border-block: 1px solid var(--color-rule);
+  padding-block: var(--space-8);
+}
+
+.public-discovery-state--error h3 {
+  margin-bottom: var(--space-2);
+  font-size: 1.5rem;
+}
+
+.public-discovery-state--error p {
+  color: var(--color-brown);
+}
+
+.public-closing {
+  border-bottom: 2px solid var(--color-ink);
+  padding: var(--space-16) var(--space-4);
+  color: white;
+  background: var(--color-library-red);
+}
+
+.public-closing__inner {
+  width: min(100%, 62rem);
+  margin-inline: auto;
+}
+
+.public-closing .eyebrow,
+.public-closing p {
+  color: white;
+}
+
+.public-closing h2 {
+  max-width: 14ch;
+  margin-bottom: var(--space-4);
+  font-size: clamp(2.25rem, 10vw, 5rem);
+  letter-spacing: -0.035em;
+}
+
+.public-closing p:not(.eyebrow) {
+  max-width: 46ch;
+  margin-bottom: var(--space-6);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .public-preview:hover .book-cover {
+    box-shadow: 6px 8px 0 rgb(27 27 27 / 20%);
+    transform: translateY(-3px);
+  }
+}
+
+@media (min-width: 480px) {
+  .public-poster,
+  .public-closing {
+    padding-inline: 1.25rem;
+  }
+
+  .public-masthead__ledger {
+    display: block;
+  }
+
+  .public-preview-list {
+    gap-inline: var(--space-6);
+  }
+}
+
+@media (min-width: 768px) {
+  .public-poster,
+  .public-closing {
+    padding-inline: var(--space-6);
+  }
+
+  .public-discovery__heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .public-preview-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .public-poster {
+    padding-inline: var(--space-8);
+  }
+
+  .public-poster__composition {
+    grid-template-columns: minmax(16rem, 0.58fr) minmax(0, 1.42fr);
+    gap: var(--space-16);
+  }
+
+  .public-hero-copy {
+    padding-top: var(--space-12);
+  }
+
+  .public-preview-list {
+    gap: var(--space-12) var(--space-6);
+  }
+
+  .book-cover__poster-title {
+    font-size: clamp(0.92rem, 1.65vw, 1.45rem);
+  }
+}
+
+@media (min-width: 1280px) {
+  .public-poster,
+  .public-closing {
+    padding-inline: 2.5rem;
+  }
+}
+
 .centred-state {
   display: flex;
   width: min(100% - 2rem, 46rem);
@@ -1299,7 +1662,17 @@ textarea {
 
   .book-cover,
   .book-card__cover-link:hover .book-cover,
+  .public-preview:hover .book-cover,
   .skip-link {
+    transform: none;
+  }
+
+  .public-page .book-cover {
+    transition: none;
+  }
+
+  .public-page .book-cover *,
+  .public-wordmark__edition {
     transform: none;
   }
 
@@ -1310,6 +1683,10 @@ textarea {
 
 @media (forced-colors: active) {
   body,
+  .public-poster,
+  .public-closing,
+  .public-wordmark__edition,
+  .book-cover__poster-copy,
   .app-header,
   .sign-in-sheet,
   .filter-drawer,
@@ -1320,6 +1697,12 @@ textarea {
     color: CanvasText;
     border-color: CanvasText;
     background: Canvas;
+  }
+
+  .public-closing .eyebrow,
+  .public-closing p,
+  .public-wordmark__edition {
+    color: CanvasText;
   }
 
   a,

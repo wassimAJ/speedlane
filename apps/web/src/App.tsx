@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./auth/AuthProvider";
 import { LibrarianRoute } from "./auth/LibrarianRoute";
@@ -10,12 +10,22 @@ import { BookDetailPage } from "./pages/BookDetailPage";
 import { CataloguePage } from "./pages/CataloguePage";
 import { FavouriteGenresPage } from "./pages/FavouriteGenresPage";
 import { MyShelfPage } from "./pages/MyShelfPage";
+import { PublicLandingPage } from "./pages/PublicLandingPage";
 import { SignInPage } from "./pages/SignInPage";
+
+function AuthenticatedApplication() {
+  return (
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
+  );
+}
 
 export function App() {
   return (
-    <AuthProvider>
-      <Routes>
+    <Routes>
+      <Route path="/" element={<PublicLandingPage />} />
+      <Route element={<AuthenticatedApplication />}>
         <Route path="/sign-in" element={<SignInPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
@@ -31,7 +41,7 @@ export function App() {
           </Route>
         </Route>
         <Route path="*" element={<Navigate replace to="/catalogue" />} />
-      </Routes>
-    </AuthProvider>
+      </Route>
+    </Routes>
   );
 }
