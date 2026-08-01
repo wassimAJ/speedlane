@@ -123,6 +123,16 @@ const subtitles = [
   "Stories for the long way home",
 ] as const;
 
+function valueAt<T>(values: readonly T[], index: number, label: string): T {
+  const value = values[index];
+
+  if (value === undefined) {
+    throw new Error(`Missing ${label} seed value at index ${index}.`);
+  }
+
+  return value;
+}
+
 function stableUuid(namespace: number, value: number) {
   return `${namespace.toString(16)}0000000-0000-4000-8000-${value
     .toString()
@@ -164,10 +174,22 @@ function genreIdsFor(index: number) {
 }
 
 function bookFor(index: number) {
-  const adjective = titleAdjectives[Math.floor(index / titleSubjects.length)];
-  const subject = titleSubjects[index % titleSubjects.length];
-  const authorFirstName = authorFirstNames[index % authorFirstNames.length];
-  const authorLastName = authorLastNames[Math.floor(index / authorFirstNames.length)];
+  const adjective = valueAt(
+    titleAdjectives,
+    Math.floor(index / titleSubjects.length),
+    "title adjective",
+  );
+  const subject = valueAt(titleSubjects, index % titleSubjects.length, "title subject");
+  const authorFirstName = valueAt(
+    authorFirstNames,
+    index % authorFirstNames.length,
+    "author first name",
+  );
+  const authorLastName = valueAt(
+    authorLastNames,
+    Math.floor(index / authorFirstNames.length),
+    "author last name",
+  );
   const publicationYear = 1980 + ((index * 7) % 46);
   const rating = 3 + ((index * 3) % 21) / 10;
   const createdAt = new Date(Date.UTC(2024, 0, index + 1, 12));
@@ -175,13 +197,14 @@ function bookFor(index: number) {
   return {
     id: stableUuid(2, index + 1),
     title: `The ${adjective} ${subject}`,
-    subtitle: index % 3 === 0 ? subtitles[index % subtitles.length] : null,
+    subtitle:
+      index % 3 === 0 ? valueAt(subtitles, index % subtitles.length, "subtitle") : null,
     author: `${authorFirstName} ${authorLastName}`,
     synopsis: `A carefully catalogued story of ${adjective.toLowerCase()} ideas, the ${subject.toLowerCase()}, and the people who discover what its pages have been keeping. Volume ${index + 1} in the Amazon 2.0 seed collection.`,
     isbn: isbnFor(index),
     publicationYear,
     pageCount: 144 + ((index * 37) % 481),
-    language: languages[index % languages.length],
+    language: valueAt(languages, index % languages.length, "language"),
     rating: new Prisma.Decimal(rating.toFixed(1)),
     coverSeed: `amazon-2-cover-${(index + 1).toString().padStart(3, "0")}`,
     archivedAt: null,

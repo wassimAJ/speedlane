@@ -27,6 +27,9 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-amazon2}:${POSTGRES_PASSWORD:-amazon2_local_only}@db:5432/${POSTGRES_DB:-amazon2}?schema=public
       CORS_ORIGIN: http://localhost:${WEB_PORT:-5173}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET to at least 32 random characters in .env}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-900}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
       - "${API_PORT:-3000}:3000"
     depends_on:
